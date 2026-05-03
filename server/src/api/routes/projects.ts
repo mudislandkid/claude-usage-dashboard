@@ -15,6 +15,7 @@ import {
   projectCacheOverTime,
 } from '../../db/queries/projectDetail.js';
 import { toolUseForProject } from '../../db/queries/toolCalls.js';
+import { gitStats } from '../../git/gitStats.js';
 import { getSettings } from '../../db/queries/settings.js';
 
 const ParamsSchema = z.object({ id: z.string().min(1) });
@@ -64,6 +65,7 @@ export async function projectsRoutes(
       modelMixOverTime: projectModelMixOverTime(db, path, days),
       cacheOverTime: projectCacheOverTime(db, path, days),
       toolUse: toolUseForProject(db, path, days),
+      git: gitStats(path, days),
       sessions: projectDetail(db, path).sessions,
     };
   });

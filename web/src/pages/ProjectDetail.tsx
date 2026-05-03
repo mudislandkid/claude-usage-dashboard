@@ -16,6 +16,7 @@ import { ActivityChart } from '@/components/widgets/ActivityChart';
 import { CacheOverTimeChart } from '@/components/widgets/CacheOverTimeChart';
 import { ModelMixOverTimeChart } from '@/components/widgets/ModelMixOverTimeChart';
 import { TopSessionsChart } from '@/components/widgets/TopSessionsChart';
+import { GitStatsCard } from '@/components/widgets/GitStatsCard';
 
 const RANGES = [7, 30, 90] as const;
 
@@ -78,6 +79,12 @@ export function ProjectDetail() {
         {data.cacheTtl && <CacheTtlCard ttl={data.cacheTtl} days={data.days} />}
         <EntrypointCard data={data.entrypoints} />
       </div>
+
+      <GitStatsCard
+        git={data.git}
+        totalTokens={data.header?.totalTokens30d ?? 0}
+        days={data.days}
+      />
 
       <Card>
         <CardHeader>

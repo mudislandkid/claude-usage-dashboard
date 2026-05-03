@@ -97,7 +97,22 @@ export interface ProjectDetailResponse {
   modelMixOverTime: ModelMixOverTimePoint[];
   cacheOverTime: CacheOverTimePoint[];
   toolUse: { toolName: string; count: number }[];
+  git: GitStats | null;
   sessions: SessionSummary[];
+}
+
+export interface GitCommit {
+  hash: string;
+  date: string;
+  subject: string;
+}
+
+export interface GitStats {
+  isRepo: boolean;
+  branch: string | null;
+  commits: GitCommit[];
+  commitCount: number;
+  pathExists: boolean;
 }
 
 export function useProject(id: string | undefined, days = 30) {
