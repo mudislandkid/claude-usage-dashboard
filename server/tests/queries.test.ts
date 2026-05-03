@@ -5,6 +5,7 @@ import { insertTurn, turnsForSession } from '../src/db/queries/turns.js';
 import { listProjects } from '../src/db/queries/projects.js';
 import { overallCacheScore } from '../src/db/queries/cache.js';
 import { classifyModel } from '../src/db/queries/modelMix.js';
+import { getSettings, updateSettings } from '../src/db/queries/settings.js';
 import type { SessionInsert, Turn } from '../src/types.js';
 
 describe('openDb', () => {
@@ -147,5 +148,20 @@ describe('aggregate queries', () => {
     const oldP = projects.find((p) => p.projectPath === '/o');
     expect(recentP?.isActive).toBe(true);
     expect(oldP?.isActive).toBe(false);
+  });
+});
+
+describe('settings', () => {
+  it('returns defaults if empty', () => {
+    const db = openDb(':memory:');
+    const s = getSettings(db);
+    expect(s.windowLimitTokens).toBeGreaterThan(0);
+    expect(s.activeWithinDays).toBe(14);
+  });
+
+  it('updates and persists', () => {
+    const db = openDb(':memory:');
+    updateSettings(db, { windowLimitTokens: 500_000 });
+    expect(getSettings(db).windowLimitTokens).toBe(500_000);
   });
 });
