@@ -2,6 +2,10 @@ import { WindowGauge } from '@/components/widgets/WindowGauge';
 import { CacheScore } from '@/components/widgets/CacheScore';
 import { ActivityHeatmap } from '@/components/widgets/ActivityHeatmap';
 import { ModelMix } from '@/components/widgets/ModelMix';
+import { Forecast } from '@/components/widgets/Forecast';
+import { CacheByHour } from '@/components/widgets/CacheByHour';
+import { WorstCacheSessions } from '@/components/widgets/WorstCacheSessions';
+import { EntrypointSplit } from '@/components/widgets/EntrypointSplit';
 
 export function Dashboard() {
   return (
@@ -9,11 +13,19 @@ export function Dashboard() {
       <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
       <div className="grid gap-6 lg:grid-cols-2">
         <WindowGauge />
+        <Forecast />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
         <CacheScore />
+        <CacheByHour />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ActivityHeatmap />
         <ModelMix />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <WorstCacheSessions />
+        <EntrypointSplit />
       </div>
     </div>
   );
