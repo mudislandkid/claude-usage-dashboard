@@ -7,6 +7,11 @@ import {
   cacheByHourOfDay,
   forecastNext24h,
 } from '../../db/queries/insights.js';
+import {
+  toolUseGlobal,
+  compactionByProject,
+  modelRecommendations,
+} from '../../db/queries/toolCalls.js';
 
 const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
 
@@ -29,5 +34,20 @@ export async function insightsRoutes(
   app.get('/forecast', async (req) => {
     const { days } = Q.parse(req.query);
     return forecastNext24h(opts.ctx.db, days);
+  });
+
+  app.get('/tool-use', async (req) => {
+    const { days } = Q.parse(req.query);
+    return { days, tools: toolUseGlobal(opts.ctx.db, days) };
+  });
+
+  app.get('/compaction', async (req) => {
+    const { days } = Q.parse(req.query);
+    return { days, projects: compactionByProject(opts.ctx.db, days) };
+  });
+
+  app.get('/model-recommendations', async (req) => {
+    const { days } = Q.parse(req.query);
+    return { days, recommendations: modelRecommendations(opts.ctx.db, days) };
   });
 }

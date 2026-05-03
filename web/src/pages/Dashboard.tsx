@@ -6,6 +6,9 @@ import { Forecast } from '@/components/widgets/Forecast';
 import { CacheByHour } from '@/components/widgets/CacheByHour';
 import { WorstCacheSessions } from '@/components/widgets/WorstCacheSessions';
 import { EntrypointSplit } from '@/components/widgets/EntrypointSplit';
+import { ToolUseChart } from '@/components/widgets/ToolUseChart';
+import { CompactionWidget } from '@/components/widgets/CompactionWidget';
+import { ModelRecommendations } from '@/components/widgets/ModelRecommendations';
 
 export function Dashboard() {
   return (
@@ -27,6 +30,11 @@ export function Dashboard() {
         <WorstCacheSessions />
         <EntrypointSplit />
       </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ToolUseChart />
+        <ModelRecommendations />
+      </div>
+      <CompactionWidget />
     </div>
   );
 }

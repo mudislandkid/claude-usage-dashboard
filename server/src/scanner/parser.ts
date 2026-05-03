@@ -1,7 +1,17 @@
 import type { Turn } from '../types.js';
 
+export interface ParsedToolCall {
+  sessionId: string;
+  messageId: string | null;
+  ts: string;
+  model: string | null;
+  toolName: string;
+  isSubagent: boolean;
+}
+
 export interface ParsedLine {
   turn: Turn | null;
+  toolCalls: ParsedToolCall[];
   meta: {
     sessionId: string | null;
     cwd: string | null;
@@ -22,6 +32,12 @@ interface UsageBlock {
     ephemeral_1h_input_tokens?: number;
   };
   service_tier?: string;
+  iterations?: unknown[];
+}
+
+interface ContentBlock {
+  type?: string;
+  name?: string;
 }
 
 interface JsonlMessage {
@@ -37,6 +53,7 @@ interface JsonlMessage {
     id?: string;
     model?: string;
     role?: string;
+    content?: ContentBlock[];
     usage?: UsageBlock;
   };
 }
@@ -44,6 +61,7 @@ interface JsonlMessage {
 export function parseLine(raw: string, opts: { isSubagentFile: boolean }): ParsedLine {
   const empty: ParsedLine = {
     turn: null,
+    toolCalls: [],
     meta: {
       sessionId: null,
       cwd: null,
@@ -68,12 +86,15 @@ export function parseLine(raw: string, opts: { isSubagentFile: boolean }): Parse
     gitBranch: obj.gitBranch ?? null,
     isSidechain: !!obj.isSidechain,
   };
-  if (obj.type !== 'assistant') return { turn: null, meta };
+  if (obj.type !== 'assistant') return { turn: null, toolCalls: [], meta };
   const m = obj.message;
   if (!m?.usage || !meta.sessionId || !obj.timestamp || !m.model) {
-    return { turn: null, meta };
+    return { turn: null, toolCalls: [], meta };
   }
   const u = m.usage;
+  const isSubagent = opts.isSubagentFile || !!obj.isSidechain;
+  const iterationsCount = Array.isArray(u.iterations) && u.iterations.length > 0 ? u.iterations.length : 1;
+
   const turn: Turn = {
     sessionId: meta.sessionId,
     messageId: m.id ?? null,
@@ -86,7 +107,23 @@ export function parseLine(raw: string, opts: { isSubagentFile: boolean }): Parse
     cacheCreation5m: u.cache_creation?.ephemeral_5m_input_tokens ?? 0,
     cacheCreation1h: u.cache_creation?.ephemeral_1h_input_tokens ?? 0,
     serviceTier: u.service_tier ?? null,
-    isSubagent: opts.isSubagentFile || !!obj.isSidechain,
+    isSubagent,
+    iterationsCount,
   };
-  return { turn, meta };
+
+  const toolCalls: ParsedToolCall[] = [];
+  for (const block of m.content ?? []) {
+    if (block.type === 'tool_use' && block.name) {
+      toolCalls.push({
+        sessionId: meta.sessionId,
+        messageId: m.id ?? null,
+        ts: obj.timestamp,
+        model: m.model,
+        toolName: block.name,
+        isSubagent,
+      });
+    }
+  }
+
+  return { turn, toolCalls, meta };
 }

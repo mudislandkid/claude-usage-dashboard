@@ -11,6 +11,7 @@ export interface Turn {
   cacheCreation1h: number;
   serviceTier: string | null;
   isSubagent: boolean;
+  iterationsCount: number;
 }
 
 export interface SessionInsert {

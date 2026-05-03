@@ -14,6 +14,7 @@ import {
   projectModelMixOverTime,
   projectCacheOverTime,
 } from '../../db/queries/projectDetail.js';
+import { toolUseForProject } from '../../db/queries/toolCalls.js';
 import { getSettings } from '../../db/queries/settings.js';
 
 const ParamsSchema = z.object({ id: z.string().min(1) });
@@ -62,6 +63,7 @@ export async function projectsRoutes(
       entrypoints: projectEntrypoints(db, path),
       modelMixOverTime: projectModelMixOverTime(db, path, days),
       cacheOverTime: projectCacheOverTime(db, path, days),
+      toolUse: toolUseForProject(db, path, days),
       sessions: projectDetail(db, path).sessions,
     };
   });

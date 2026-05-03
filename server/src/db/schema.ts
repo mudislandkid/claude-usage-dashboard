@@ -1,3 +1,5 @@
+export const SCHEMA_VERSION = 2;
+
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS files (
   path TEXT PRIMARY KEY,
@@ -38,15 +40,41 @@ CREATE TABLE IF NOT EXISTS turns (
   cache_creation_5m INTEGER NOT NULL DEFAULT 0,
   cache_creation_1h INTEGER NOT NULL DEFAULT 0,
   service_tier TEXT,
-  is_subagent INTEGER NOT NULL DEFAULT 0
+  is_subagent INTEGER NOT NULL DEFAULT 0,
+  iterations_count INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS idx_turns_session ON turns(session_id);
 CREATE INDEX IF NOT EXISTS idx_turns_ts ON turns(ts);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_turns_message_id
   ON turns(message_id) WHERE message_id IS NOT NULL AND message_id != '';
 
+CREATE TABLE IF NOT EXISTS tool_calls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  message_id TEXT,
+  ts TEXT NOT NULL,
+  model TEXT,
+  tool_name TEXT NOT NULL,
+  is_subagent INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_tool_session ON tool_calls(session_id);
+CREATE INDEX IF NOT EXISTS idx_tool_name ON tool_calls(tool_name);
+CREATE INDEX IF NOT EXISTS idx_tool_ts ON tool_calls(ts);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+`;
+
+/**
+ * Drop all derived tables and re-run schema. Sessions/turns/tool_calls/files
+ * are all rebuildable from the JSONL transcripts, so a wipe is safe — it
+ * just triggers a full rescan on next boot.
+ */
+export const RESET_SQL = `
+DROP TABLE IF EXISTS tool_calls;
+DROP TABLE IF EXISTS turns;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS files;
 `;

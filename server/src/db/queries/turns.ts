@@ -6,8 +6,8 @@ export function insertTurn(db: DB, t: Turn): void {
     `INSERT OR IGNORE INTO turns
       (session_id, message_id, ts, model, input_tokens, output_tokens,
        cache_read_tokens, cache_creation_tokens, cache_creation_5m,
-       cache_creation_1h, service_tier, is_subagent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       cache_creation_1h, service_tier, is_subagent, iterations_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     t.sessionId,
     t.messageId,
@@ -21,6 +21,7 @@ export function insertTurn(db: DB, t: Turn): void {
     t.cacheCreation1h,
     t.serviceTier,
     t.isSubagent ? 1 : 0,
+    t.iterationsCount,
   );
 }
 
@@ -45,5 +46,6 @@ function rowToTurn(r: Record<string, unknown>): Turn {
     cacheCreation1h: r.cache_creation_1h as number,
     serviceTier: (r.service_tier as string) ?? null,
     isSubagent: r.is_subagent === 1,
+    iterationsCount: (r.iterations_count as number) ?? 1,
   };
 }

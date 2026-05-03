@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { DB } from '../db/connection.js';
 import { upsertSession, refreshTurnCount } from '../db/queries/sessions.js';
 import { insertTurn } from '../db/queries/turns.js';
+import { insertToolCall } from '../db/queries/toolCalls.js';
 import { parseLine } from './parser.js';
 import { projectNameFromCwd, projectKeyFromCwd } from './projectName.js';
 import { isSubagentFile, parentSessionFromPath, topLevelSessionId } from './subagent.js';
@@ -78,12 +79,19 @@ async function scanFile(
   for await (const raw of rl) {
     lineNo += 1;
     if (lineNo <= skipLines) continue;
-    const { turn, meta } = parseLine(raw, { isSubagentFile: subagent });
+    const { turn, toolCalls, meta } = parseLine(raw, { isSubagentFile: subagent });
     const sid = meta.sessionId ?? fallbackSessionId;
     if (turn) {
       try {
         insertTurn(db, { ...turn, sessionId: sid });
         result.turnsInserted += 1;
+      } catch {
+        result.errors += 1;
+      }
+    }
+    for (const tc of toolCalls) {
+      try {
+        insertToolCall(db, { ...tc, sessionId: sid });
       } catch {
         result.errors += 1;
       }

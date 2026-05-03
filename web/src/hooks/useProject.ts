@@ -96,6 +96,7 @@ export interface ProjectDetailResponse {
   entrypoints: Entrypoint[];
   modelMixOverTime: ModelMixOverTimePoint[];
   cacheOverTime: CacheOverTimePoint[];
+  toolUse: { toolName: string; count: number }[];
   sessions: SessionSummary[];
 }
 

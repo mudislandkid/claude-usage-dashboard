@@ -53,6 +53,7 @@ function baseTurn(): Turn {
     cacheCreation1h: 0,
     serviceTier: null,
     isSubagent: false,
+    iterationsCount: 1,
   };
 }
 
@@ -85,6 +86,7 @@ describe('sessions + turns queries', () => {
       cacheCreation1h: 36323,
       serviceTier: 'standard',
       isSubagent: false,
+      iterationsCount: 1,
     });
     const turns = turnsForSession(db, 's1');
     expect(turns).toHaveLength(1);
