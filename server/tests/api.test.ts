@@ -1,0 +1,45 @@
+import { describe, it, expect } from 'vitest';
+import { openDb } from '../src/db/connection.js';
+import { buildApi } from '../src/api/server.js';
+
+describe('api/health', () => {
+  it('responds with ok', async () => {
+    const db = openDb(':memory:');
+    const app = await buildApi({ db, triggerScan: async () => {} });
+    const res = await app.inject({ method: 'GET', url: '/api/health' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+    await app.close();
+  });
+});
+
+describe('GET /api/window', () => {
+  it('returns window stats with limit + projection', async () => {
+    const db = openDb(':memory:');
+    const app = await buildApi({ db, triggerScan: async () => {} });
+    const res = await app.inject({ method: 'GET', url: '/api/window' });
+    const body = res.json();
+    expect(res.statusCode).toBe(200);
+    expect(body.limitTokens).toBeGreaterThan(0);
+    expect(body.percentUsed).toBe(0);
+    await app.close();
+  });
+});
+
+describe('settings round-trip', () => {
+  it('GET defaults, POST update, GET reflects', async () => {
+    const db = openDb(':memory:');
+    const app = await buildApi({ db, triggerScan: async () => {} });
+    const def = (await app.inject({ method: 'GET', url: '/api/settings' })).json();
+    expect(def.windowLimitTokens).toBeGreaterThan(0);
+    const post = await app.inject({
+      method: 'POST',
+      url: '/api/settings',
+      payload: { windowLimitTokens: 999_999 },
+    });
+    expect(post.statusCode).toBe(200);
+    const after = (await app.inject({ method: 'GET', url: '/api/settings' })).json();
+    expect(after.windowLimitTokens).toBe(999_999);
+    await app.close();
+  });
+});
