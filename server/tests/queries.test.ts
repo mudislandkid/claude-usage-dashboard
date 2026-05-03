@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { openDb } from '../src/db/connection.js';
 import { upsertSession } from '../src/db/queries/sessions.js';
 import { insertTurn, turnsForSession } from '../src/db/queries/turns.js';
+import { listProjects } from '../src/db/queries/projects.js';
+import { overallCacheScore } from '../src/db/queries/cache.js';
+import { classifyModel } from '../src/db/queries/modelMix.js';
 import type { SessionInsert, Turn } from '../src/types.js';
 
 describe('openDb', () => {
@@ -94,5 +97,55 @@ describe('sessions + turns queries', () => {
     insertTurn(db, t);
     insertTurn(db, t);
     expect(turnsForSession(db, 's1')).toHaveLength(1);
+  });
+});
+
+describe('aggregate queries', () => {
+  it('classifyModel handles known + unknown', () => {
+    expect(classifyModel('claude-opus-4-7')).toBe('opus');
+    expect(classifyModel('claude-haiku-4-5-20251001')).toBe('haiku');
+    expect(classifyModel('something-else')).toBe('other');
+    expect(classifyModel(null)).toBe('other');
+  });
+
+  it('overallCacheScore computes ratio', () => {
+    const db = openDb(':memory:');
+    upsertSession(db, baseSession());
+    insertTurn(db, {
+      ...baseTurn(),
+      messageId: 'a',
+      cacheReadTokens: 80,
+      cacheCreationTokens: 10,
+      inputTokens: 10,
+    });
+    const score = overallCacheScore(db, 365);
+    expect(score.effectiveness).toBeCloseTo(0.8, 2);
+  });
+
+  it('listProjects flags active vs abandoned', () => {
+    const db = openDb(':memory:');
+    const recent = new Date().toISOString();
+    const old = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    upsertSession(db, {
+      ...baseSession(),
+      sessionId: 'recent',
+      projectPath: '/r',
+      projectName: 'r',
+      firstTs: recent,
+      lastTs: recent,
+    });
+    upsertSession(db, {
+      ...baseSession(),
+      sessionId: 'old',
+      projectPath: '/o',
+      projectName: 'o',
+      firstTs: old,
+      lastTs: old,
+    });
+    const projects = listProjects(db, 14);
+    const recentP = projects.find((p) => p.projectPath === '/r');
+    const oldP = projects.find((p) => p.projectPath === '/o');
+    expect(recentP?.isActive).toBe(true);
+    expect(oldP?.isActive).toBe(false);
   });
 });
