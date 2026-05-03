@@ -28,10 +28,20 @@ export interface TurnRow {
   cache_creation_tokens: number;
 }
 
+export interface SubSession {
+  startTs: string;
+  endTs: string;
+  durationMinutes: number;
+  turns: number;
+  totalTokens: number;
+  chargeable: number;
+}
+
 export interface SessionDetailResponse {
   session: SessionRow | undefined;
   subagents: SubagentRow[];
   turns: TurnRow[];
+  subSessions: SubSession[];
 }
 
 export function useSession(id: string | undefined) {

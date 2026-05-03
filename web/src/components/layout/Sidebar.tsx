@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings as SettingsIcon, Columns } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/compare', label: 'Compare', icon: Columns },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 

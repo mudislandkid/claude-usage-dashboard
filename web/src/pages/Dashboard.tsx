@@ -9,6 +9,8 @@ import { EntrypointSplit } from '@/components/widgets/EntrypointSplit';
 import { ToolUseChart } from '@/components/widgets/ToolUseChart';
 import { CompactionWidget } from '@/components/widgets/CompactionWidget';
 import { ModelRecommendations } from '@/components/widgets/ModelRecommendations';
+import { TtlLeakage } from '@/components/widgets/TtlLeakage';
+import { VersionAdoption } from '@/components/widgets/VersionAdoption';
 
 export function Dashboard() {
   return (
@@ -33,6 +35,10 @@ export function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <ToolUseChart />
         <ModelRecommendations />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TtlLeakage />
+        <VersionAdoption />
       </div>
       <CompactionWidget />
     </div>

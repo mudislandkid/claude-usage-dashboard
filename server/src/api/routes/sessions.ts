@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import type { ApiContext } from '../server.js';
 import { turnsForSession } from '../../db/queries/turns.js';
+import { logicalSubSessions } from '../../db/queries/heavy.js';
 
 const ParamsSchema = z.object({ id: z.string().min(1) });
 
@@ -21,6 +22,7 @@ export async function sessionRoute(
       )
       .all(id);
     const turns = turnsForSession(opts.ctx.db, id);
-    return { session, subagents, turns };
+    const subSessions = logicalSubSessions(opts.ctx.db, id, 30);
+    return { session, subagents, turns, subSessions };
   });
 }

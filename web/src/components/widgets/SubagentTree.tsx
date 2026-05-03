@@ -33,6 +33,29 @@ export function SubagentTree() {
           <Stat label="Total turns" value={String(data.session?.turn_count ?? 0)} />
           <Stat label="Total tokens" value={formatTokens(total)} />
         </div>
+        {data.subSessions && data.subSessions.length > 1 && (
+          <div>
+            <div className="text-xs uppercase text-muted-foreground mb-2 tracking-wide">
+              Logical sub-sessions ({data.subSessions.length} — gaps &gt; 30 min)
+            </div>
+            <ul className="space-y-1">
+              {data.subSessions.map((ss, i) => (
+                <li
+                  key={ss.startTs}
+                  className="flex justify-between border-b border-border py-1 text-xs"
+                >
+                  <span className="text-muted-foreground">
+                    #{i + 1}: {formatRelative(ss.startTs)} → {formatRelative(ss.endTs)} ({Math.round(ss.durationMinutes)}m)
+                  </span>
+                  <span className="tabular-nums">
+                    {ss.turns} turns • {formatTokens(ss.totalTokens)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {data.subagents.length > 0 && (
           <div>
             <div className="text-xs uppercase text-muted-foreground mb-2 tracking-wide">

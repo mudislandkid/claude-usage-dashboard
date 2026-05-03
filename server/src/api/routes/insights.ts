@@ -12,6 +12,11 @@ import {
   compactionByProject,
   modelRecommendations,
 } from '../../db/queries/toolCalls.js';
+import {
+  ttlLeakageGlobal,
+  ttlLeakageByProject,
+  versionAdoption,
+} from '../../db/queries/heavy.js';
 
 const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
 
@@ -49,5 +54,18 @@ export async function insightsRoutes(
   app.get('/model-recommendations', async (req) => {
     const { days } = Q.parse(req.query);
     return { days, recommendations: modelRecommendations(opts.ctx.db, days) };
+  });
+
+  app.get('/ttl-leakage', async (req) => {
+    const { days } = Q.parse(req.query);
+    return {
+      days,
+      overall: ttlLeakageGlobal(opts.ctx.db, days),
+      byProject: ttlLeakageByProject(opts.ctx.db, days),
+    };
+  });
+
+  app.get('/version-adoption', async () => {
+    return { versions: versionAdoption(opts.ctx.db) };
   });
 }
