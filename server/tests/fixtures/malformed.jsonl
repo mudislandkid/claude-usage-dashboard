@@ -1,0 +1,3 @@
+not even json
+{"type":"assistant"}
+{"type":"user","timestamp":"2026-04-21T08:10:00Z","sessionId":"s","message":{"role":"user","content":"hi"}}
