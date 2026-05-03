@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import type { DB } from '../db/connection.js';
 import { healthRoute } from './routes/health.js';
 import { windowRoute } from './routes/window.js';
+import { peakWindowRoute } from './routes/peakWindow.js';
 import { projectsRoutes } from './routes/projects.js';
 import { sessionRoute } from './routes/sessions.js';
 import { heatmapRoute } from './routes/heatmap.js';
@@ -21,6 +22,7 @@ export async function buildApi(ctx: ApiContext): Promise<FastifyInstance> {
   await app.register(cors, { origin: true });
   app.register(healthRoute, { prefix: '/api', ctx });
   app.register(windowRoute, { prefix: '/api', ctx });
+  app.register(peakWindowRoute, { prefix: '/api', ctx });
   app.register(projectsRoutes, { prefix: '/api', ctx });
   app.register(sessionRoute, { prefix: '/api', ctx });
   app.register(heatmapRoute, { prefix: '/api', ctx });

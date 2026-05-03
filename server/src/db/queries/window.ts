@@ -43,3 +43,67 @@ export function fiveHourWindow(db: DB, now = new Date()): WindowStats {
     burnRatePerMin: (recent.chargeable ?? 0) / 15,
   };
 }
+
+export interface PeakWindow {
+  days: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  max: number;
+  samples: number;
+}
+
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+
+/**
+ * For each assistant turn in the last `days`, compute the rolling 5h
+ * chargeable-token sum ending at that turn. Return percentiles + max
+ * across those window snapshots. Used by the Settings auto-calibrate
+ * feature to suggest a personalized window limit.
+ */
+export function peakWindow(db: DB, days: number): PeakWindow {
+  const cutoffIso = new Date(Date.now() - days * 86_400_000).toISOString();
+
+  const rows = db
+    .prepare(
+      `SELECT ts, (input_tokens + cache_creation_tokens) AS chargeable
+       FROM turns
+       WHERE ts >= ?
+       ORDER BY ts ASC`,
+    )
+    .all(cutoffIso) as Array<{ ts: string; chargeable: number }>;
+
+  if (rows.length === 0) {
+    return { days, p50: 0, p95: 0, p99: 0, max: 0, samples: 0 };
+  }
+
+  const timestamps = rows.map((r) => new Date(r.ts).getTime());
+  const charges = rows.map((r) => r.chargeable);
+
+  const windowSums: number[] = [];
+  let lo = 0;
+  let sum = 0;
+  for (let hi = 0; hi < rows.length; hi++) {
+    sum += charges[hi]!;
+    while (lo <= hi && timestamps[hi]! - timestamps[lo]! > FIVE_HOURS_MS) {
+      sum -= charges[lo]!;
+      lo += 1;
+    }
+    windowSums.push(sum);
+  }
+
+  windowSums.sort((a, b) => a - b);
+  const pick = (p: number): number => {
+    const idx = Math.min(windowSums.length - 1, Math.floor(windowSums.length * p));
+    return windowSums[idx] ?? 0;
+  };
+
+  return {
+    days,
+    p50: pick(0.5),
+    p95: pick(0.95),
+    p99: pick(0.99),
+    max: windowSums[windowSums.length - 1] ?? 0,
+    samples: windowSums.length,
+  };
+}

@@ -151,6 +151,38 @@ describe('aggregate queries', () => {
   });
 });
 
+describe('peakWindow', () => {
+  it('computes p95/p99/max across rolling 5h windows', async () => {
+    const { peakWindow } = await import('../src/db/queries/window.js');
+    const db = openDb(':memory:');
+    upsertSession(db, baseSession());
+    const now = Date.now();
+    for (let i = 0; i < 100; i++) {
+      const ts = new Date(now - i * 60_000).toISOString();
+      insertTurn(db, {
+        ...baseTurn(),
+        messageId: `m-${i}`,
+        ts,
+        inputTokens: 1000,
+        cacheCreationTokens: 0,
+      });
+    }
+    const r = peakWindow(db, 30);
+    expect(r.samples).toBe(100);
+    expect(r.max).toBeGreaterThan(0);
+    expect(r.p95).toBeGreaterThan(0);
+    expect(r.p99).toBeGreaterThanOrEqual(r.p95);
+  });
+
+  it('returns zeros for empty db', async () => {
+    const { peakWindow } = await import('../src/db/queries/window.js');
+    const db = openDb(':memory:');
+    const r = peakWindow(db, 30);
+    expect(r.samples).toBe(0);
+    expect(r.max).toBe(0);
+  });
+});
+
 describe('settings', () => {
   it('returns defaults if empty', () => {
     const db = openDb(':memory:');
