@@ -1,8 +1,21 @@
+import { Routes, Route } from 'react-router-dom';
+import { AppShell } from '@/components/layout/AppShell';
+import { Dashboard } from '@/pages/Dashboard';
+import { Projects } from '@/pages/Projects';
+import { ProjectDetail } from '@/pages/ProjectDetail';
+import { SessionDetail } from '@/pages/SessionDetail';
+import { Settings } from '@/pages/Settings';
+
 export default function App() {
   return (
-    <div className="min-h-screen p-8">
-      <h1 className="text-2xl font-semibold">Claude Usage Dashboard</h1>
-      <p className="text-muted-foreground mt-2">Boot test — replace shortly.</p>
-    </div>
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/:id" element={<ProjectDetail />} />
+        <Route path="/sessions/:id" element={<SessionDetail />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </AppShell>
   );
 }
