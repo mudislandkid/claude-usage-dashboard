@@ -21,7 +21,28 @@ describe('GET /api/window', () => {
     const body = res.json();
     expect(res.statusCode).toBe(200);
     expect(body.limitTokens).toBeGreaterThan(0);
-    expect(body.percentUsed).toBe(0);
+    // percentUsed may reflect either an empty in-memory DB (0) or a live
+    // statusline sidecar on the developer's machine — accept either.
+    expect(body.percentUsed).toBeGreaterThanOrEqual(0);
+    expect(body.percentUsed).toBeLessThanOrEqual(1);
+    expect(body.bridge).toBeDefined();
+    await app.close();
+  });
+});
+
+describe('GET /api/weekly', () => {
+  it('returns weekly limits shape with oauth disabled by default', async () => {
+    const db = openDb(':memory:');
+    const app = await buildApi({ db, triggerScan: async () => {} });
+    const res = await app.inject({ method: 'GET', url: '/api/weekly' });
+    const body = res.json();
+    expect(res.statusCode).toBe(200);
+    expect(body.oauth.enabled).toBe(false);
+    // allModels may come from sidecar (statusline) on a developer machine, or be null on CI.
+    if (body.allModels !== null) {
+      expect(body.allModels.percent).toBeGreaterThanOrEqual(0);
+      expect(body.allModels.source).toBeDefined();
+    }
     await app.close();
   });
 });

@@ -4,12 +4,14 @@ export interface DashboardSettings {
   windowLimitTokens: number;
   activeWithinDays: number;
   cacheScoreWindowDays: number;
+  oauthUsageEnabled: boolean;
 }
 
 const DEFAULTS: DashboardSettings = {
   windowLimitTokens: 220_000,
   activeWithinDays: 14,
   cacheScoreWindowDays: 7,
+  oauthUsageEnabled: false,
 };
 
 export function getSettings(db: DB): DashboardSettings {
@@ -20,7 +22,13 @@ export function getSettings(db: DB): DashboardSettings {
     windowLimitTokens: numOr(map.windowLimitTokens, DEFAULTS.windowLimitTokens),
     activeWithinDays: numOr(map.activeWithinDays, DEFAULTS.activeWithinDays),
     cacheScoreWindowDays: numOr(map.cacheScoreWindowDays, DEFAULTS.cacheScoreWindowDays),
+    oauthUsageEnabled: boolOr(map.oauthUsageEnabled, DEFAULTS.oauthUsageEnabled),
   };
+}
+
+function boolOr(s: string | undefined, fallback: boolean): boolean {
+  if (s === undefined) return fallback;
+  return s === 'true' || s === '1';
 }
 
 export function updateSettings(db: DB, partial: Partial<DashboardSettings>): DashboardSettings {

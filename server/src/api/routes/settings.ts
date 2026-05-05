@@ -7,6 +7,7 @@ const Body = z.object({
   windowLimitTokens: z.number().int().positive().optional(),
   activeWithinDays: z.number().int().positive().optional(),
   cacheScoreWindowDays: z.number().int().positive().optional(),
+  oauthUsageEnabled: z.boolean().optional(),
 });
 
 export async function settingsRoutes(

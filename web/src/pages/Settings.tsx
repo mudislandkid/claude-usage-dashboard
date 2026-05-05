@@ -6,6 +6,8 @@ import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import { usePeakWindow } from '@/hooks/usePeakWindow';
 import { PLAN_PRESETS, CUSTOM_PLAN, detectPlan } from '@/lib/plans';
 import { formatTokens } from '@/lib/format';
+import { StatuslineBridgeCard } from '@/components/widgets/StatuslineBridgeCard';
+import { OauthUsageCard } from '@/components/widgets/OauthUsageCard';
 
 export function Settings() {
   const { data, isLoading } = useSettings();
@@ -62,6 +64,10 @@ export function Settings() {
   return (
     <div className="space-y-6 max-w-2xl">
       <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
+
+      <StatuslineBridgeCard />
+
+      <OauthUsageCard />
 
       <Card>
         <CardHeader>

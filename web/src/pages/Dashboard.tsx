@@ -1,4 +1,5 @@
 import { WindowGauge } from '@/components/widgets/WindowGauge';
+import { WeeklyLimitsCard } from '@/components/widgets/WeeklyLimitsCard';
 import { CacheScore } from '@/components/widgets/CacheScore';
 import { ActivityHeatmap } from '@/components/widgets/ActivityHeatmap';
 import { ModelMix } from '@/components/widgets/ModelMix';
@@ -20,6 +21,7 @@ export function Dashboard() {
         <WindowGauge />
         <Forecast />
       </div>
+      <WeeklyLimitsCard />
       <div className="grid gap-6 lg:grid-cols-2">
         <CacheScore />
         <CacheByHour />

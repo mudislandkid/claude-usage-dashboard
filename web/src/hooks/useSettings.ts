@@ -5,6 +5,7 @@ export interface Settings {
   windowLimitTokens: number;
   activeWithinDays: number;
   cacheScoreWindowDays: number;
+  oauthUsageEnabled: boolean;
 }
 
 export function useSettings() {
@@ -19,6 +20,7 @@ export function useUpdateSettings() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settings'] });
       qc.invalidateQueries({ queryKey: ['window'] });
+      qc.invalidateQueries({ queryKey: ['weekly'] });
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['cache'] });
     },

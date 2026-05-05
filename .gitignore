@@ -1,11 +1,50 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 build/
+*.tsbuildinfo
+
+# OS / editor metadata
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
 *.log
+npm-debug.log*
+yarn-error.log*
+
+# Environment / secrets — keep .env.example tracked
 .env
-.env.local
-phuryn-reference/
-.project-mapper.db*
+.env.*
+!.env.example
+
+# Local scratch / caches
 .cache/
+.vite/
+.turbo/
 coverage/
+.project*
+
+# Reference clones (not part of this repo)
+phuryn-reference/
+
+# Local backups
+*.bak
+*.bak.*
+.claude/settings.json.bak.*
+
+# Sidecar / cache files written by the dashboard at runtime
+# (live in ~/.claude/, not in the repo — listed for safety in case
+#  someone runs from a custom HOME or copies them in)
+usage-dashboard.statusline.json
+usage-dashboard.usage-api.json
+usage-dashboard.db
+usage-dashboard.db-shm
+usage-dashboard.db-wal
+.credentials.json

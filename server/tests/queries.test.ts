@@ -153,6 +153,71 @@ describe('aggregate queries', () => {
   });
 });
 
+describe('fiveHourWindow (anchored)', () => {
+  it('anchors to top-of-hour of first turn after a >=5h gap', async () => {
+    const { fiveHourWindow } = await import('../src/db/queries/window.js');
+    const db = openDb(':memory:');
+    upsertSession(db, baseSession());
+    // Old activity, then a long idle, then a turn at 18:13 → window 18:00-23:00.
+    insertTurn(db, { ...baseTurn(), messageId: 'old', ts: '2026-05-01T10:00:00Z' });
+    insertTurn(db, {
+      ...baseTurn(),
+      messageId: 'first',
+      ts: '2026-05-01T18:13:00Z',
+      inputTokens: 1000,
+      cacheCreationTokens: 500,
+    });
+    insertTurn(db, {
+      ...baseTurn(),
+      messageId: 'second',
+      ts: '2026-05-01T19:00:00Z',
+      inputTokens: 2000,
+      cacheCreationTokens: 0,
+    });
+    const now = new Date('2026-05-01T19:30:00Z');
+    const w = fiveHourWindow(db, now);
+    expect(w.windowActive).toBe(true);
+    expect(w.windowStart).toBe('2026-05-01T18:00:00.000Z');
+    expect(w.windowEnd).toBe('2026-05-01T23:00:00.000Z');
+    expect(w.totalChargeable).toBe(3500); // 1000+500+2000
+  });
+
+  it('opens a new window when a turn falls past the previous windowEnd', async () => {
+    const { fiveHourWindow } = await import('../src/db/queries/window.js');
+    const db = openDb(':memory:');
+    upsertSession(db, baseSession());
+    // Anchor #1: 10:00, ends 15:00. A turn at 15:30 starts anchor #2 at 15:00, ends 20:00.
+    insertTurn(db, { ...baseTurn(), messageId: 'a', ts: '2026-05-01T10:05:00Z', inputTokens: 1000 });
+    insertTurn(db, { ...baseTurn(), messageId: 'b', ts: '2026-05-01T15:30:00Z', inputTokens: 2000 });
+    const now = new Date('2026-05-01T16:00:00Z');
+    const w = fiveHourWindow(db, now);
+    expect(w.windowStart).toBe('2026-05-01T15:00:00.000Z');
+    expect(w.windowEnd).toBe('2026-05-01T20:00:00.000Z');
+    expect(w.totalChargeable).toBe(2000); // only the second turn falls inside
+  });
+
+  it('reports inactive when most recent windowEnd has passed', async () => {
+    const { fiveHourWindow } = await import('../src/db/queries/window.js');
+    const db = openDb(':memory:');
+    upsertSession(db, baseSession());
+    insertTurn(db, { ...baseTurn(), messageId: 'a', ts: '2026-05-01T10:00:00Z', inputTokens: 1000 });
+    const now = new Date('2026-05-01T15:30:00Z'); // past 15:00 windowEnd
+    const w = fiveHourWindow(db, now);
+    expect(w.windowActive).toBe(false);
+    expect(w.windowStart).toBeNull();
+    expect(w.totalChargeable).toBe(0);
+  });
+
+  it('returns inactive on empty db', async () => {
+    const { fiveHourWindow } = await import('../src/db/queries/window.js');
+    const db = openDb(':memory:');
+    const w = fiveHourWindow(db, new Date('2026-05-01T12:00:00Z'));
+    expect(w.windowActive).toBe(false);
+    expect(w.totalChargeable).toBe(0);
+    expect(w.burnRatePerMin).toBe(0);
+  });
+});
+
 describe('peakWindow', () => {
   it('computes p95/p99/max across rolling 5h windows', async () => {
     const { peakWindow } = await import('../src/db/queries/window.js');
