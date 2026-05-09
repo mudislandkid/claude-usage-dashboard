@@ -11,6 +11,7 @@ import { ToolUseChart } from '@/components/widgets/ToolUseChart';
 import { CompactionWidget } from '@/components/widgets/CompactionWidget';
 import { ModelRecommendations } from '@/components/widgets/ModelRecommendations';
 import { TtlLeakage } from '@/components/widgets/TtlLeakage';
+import { CacheTtlEfficiencyCard } from '@/components/widgets/CacheTtlEfficiencyCard';
 import { VersionAdoption } from '@/components/widgets/VersionAdoption';
 
 export function Dashboard() {
@@ -38,6 +39,7 @@ export function Dashboard() {
         <ToolUseChart />
         <ModelRecommendations />
       </div>
+      <CacheTtlEfficiencyCard />
       <div className="grid gap-6 lg:grid-cols-2">
         <TtlLeakage />
         <VersionAdoption />

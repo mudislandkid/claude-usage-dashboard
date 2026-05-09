@@ -3,6 +3,11 @@ import { OAUTH_USAGE_CACHE } from '../config.js';
 import { loadOauthCredentials, type OauthCredentials } from './oauthCredentials.js';
 
 const ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
+
+// Hard rate limit to avoid spamming an undocumented Anthropic endpoint.
+// At most one outbound HTTPS call per REFRESH_INTERVAL_MS, regardless of how
+// often the dashboard polls /api/weekly. On HTTP errors we wait an additional
+// BACKOFF_AFTER_FAILURE_MS before retrying so a misconfiguration can't loop.
 const REFRESH_INTERVAL_MS = 5 * 60_000;
 const BACKOFF_AFTER_FAILURE_MS = 5 * 60_000;
 

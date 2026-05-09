@@ -17,6 +17,7 @@ import {
   ttlLeakageByProject,
   versionAdoption,
 } from '../../db/queries/heavy.js';
+import { cacheTtlEfficiency } from '../../db/queries/cacheTtl.js';
 
 const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
 
@@ -67,5 +68,10 @@ export async function insightsRoutes(
 
   app.get('/version-adoption', async () => {
     return { versions: versionAdoption(opts.ctx.db) };
+  });
+
+  app.get('/cache-ttl-efficiency', async (req) => {
+    const { days } = Q.parse(req.query);
+    return cacheTtlEfficiency(opts.ctx.db, days);
   });
 }

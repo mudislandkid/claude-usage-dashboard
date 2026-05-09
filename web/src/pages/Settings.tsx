@@ -8,6 +8,7 @@ import { PLAN_PRESETS, CUSTOM_PLAN, detectPlan } from '@/lib/plans';
 import { formatTokens } from '@/lib/format';
 import { StatuslineBridgeCard } from '@/components/widgets/StatuslineBridgeCard';
 import { OauthUsageCard } from '@/components/widgets/OauthUsageCard';
+import { CacheTtlShareCard } from '@/components/widgets/CacheTtlShareCard';
 
 export function Settings() {
   const { data, isLoading } = useSettings();
@@ -154,6 +155,8 @@ export function Settings() {
           {update.isPending ? 'Saving…' : 'Save'}
         </Button>
       </div>
+
+      <CacheTtlShareCard />
     </div>
   );
 }
