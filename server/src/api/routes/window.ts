@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import type { ApiContext } from '../server.js';
-import { fiveHourWindow } from '../../db/queries/window.js';
+import { fiveHourWindow, chargeableInWindowSlice } from '../../db/queries/window.js';
 import { getSettings } from '../../db/queries/settings.js';
 import { readStatuslineSidecar } from '../../lib/statusline.js';
 
@@ -28,24 +28,45 @@ export async function windowRoute(
       new Date(sidecar.fiveHourResetsAt).getTime() > nowMs;
     const bridgeActive = sidecarFresh;
 
-    // Effective limit: when the bridge is on we infer it from Anthropic's %
-    // ÷ our locally-counted tokens. This keeps projection math in a single
-    // unit (our chargeable tokens) and self-corrects to whatever ratio
-    // Anthropic uses internally.
+    // Effective limit + percent. The bridge's percent is a *snapshot* taken
+    // when Claude Code last wrote the statusline (i.e. when the user last
+    // submitted a prompt). Tokens flowed locally between that capture and now.
+    //
+    // To stay in sync we anchor the cap inference to capture-time:
+    //   1. Look up how many chargeable tokens we'd counted locally at
+    //      sidecar.capturedAt — call it `usedAtCapture`.
+    //   2. The implied cap is `usedAtCapture / anthropicPct` (both points
+    //      are from the same moment, so the ratio is stable).
+    //   3. Today's `percentUsed` = current `used` / that inferred cap.
+    //
+    // This makes the gauge reflect activity since the last prompt instead
+    // of being pinned to the stale snapshot percentage.
     const anthropicPctFraction =
       sidecar?.fiveHourPercent !== null && sidecar?.fiveHourPercent !== undefined
         ? sidecar.fiveHourPercent / 100
         : null;
-    const effectiveLimit =
-      bridgeActive && anthropicPctFraction !== null && anthropicPctFraction > 0 && used > 0
-        ? used / anthropicPctFraction
-        : limit;
 
-    const percentUsed = bridgeActive
-      ? Math.min(1, anthropicPctFraction ?? 0)
-      : limit > 0
-        ? Math.min(1, used / limit)
-        : 0;
+    let effectiveLimit = limit;
+    let percentUsed = limit > 0 ? Math.min(1, used / limit) : 0;
+
+    if (bridgeActive && anthropicPctFraction !== null && anthropicPctFraction > 0) {
+      const captureIso = sidecar!.capturedAt;
+      const usedAtCapture =
+        w.windowStart !== null
+          ? chargeableInWindowSlice(opts.ctx.db, w.windowStart, captureIso)
+          : 0;
+      if (usedAtCapture > 0) {
+        effectiveLimit = usedAtCapture / anthropicPctFraction;
+        percentUsed = Math.min(1, used / effectiveLimit);
+      } else if (used > 0) {
+        // No local activity at capture time — fall back to the simple ratio.
+        effectiveLimit = used / anthropicPctFraction;
+        percentUsed = anthropicPctFraction;
+      } else {
+        // No local data at all yet — trust the bridge value verbatim.
+        percentUsed = anthropicPctFraction;
+      }
+    }
 
     const minutesToReset = bridgeActive
       ? Math.max(0, (new Date(sidecar!.fiveHourResetsAt!).getTime() - nowMs) / 60_000)

@@ -103,6 +103,26 @@ export function fiveHourWindow(db: DB, now = new Date()): WindowStats {
   };
 }
 
+/**
+ * Chargeable tokens (input + cache_creation) inside an arbitrary slice of
+ * the active 5h window. Used to anchor the bridge's stale pct snapshot to
+ * the matching local token count: at sidecar capture time we counted X
+ * tokens locally and Anthropic reported Y%, so the implied cap is X/Y.
+ */
+export function chargeableInWindowSlice(
+  db: DB,
+  windowStartIso: string,
+  asOfIso: string,
+): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(input_tokens + cache_creation_tokens), 0) AS chargeable
+       FROM turns WHERE ts >= ? AND ts <= ?`,
+    )
+    .get(windowStartIso, asOfIso) as { chargeable: number };
+  return row.chargeable ?? 0;
+}
+
 export interface PeakWindow {
   days: number;
   p50: number;
