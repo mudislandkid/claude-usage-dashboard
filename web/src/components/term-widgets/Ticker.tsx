@@ -1,5 +1,6 @@
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TickerNum } from '@/components/terminal/Ticker';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useWindow } from '@/hooks/useWindow';
 import { useWeekly } from '@/hooks/useWeekly';
 import { useCacheScore } from '@/hooks/useCacheScore';
@@ -11,22 +12,27 @@ import { formatTokens } from '@/lib/format';
 import { fmtUSDCompact } from '@/lib/pricing';
 
 export function DashboardTicker() {
+  const days = useRangeDays();
+  const label = useRangeLabel().toUpperCase();
   const { data: win } = useWindow();
   const { data: wk } = useWeekly();
-  const { data: cache } = useCacheScore();
+  const { data: cache } = useCacheScore(days);
+  // Forecast always uses ~30d history; the prediction itself is fixed at "next 24h".
   const { data: forecast } = useForecast(30);
-  const { data: ttl } = useCacheTtlEfficiency(30);
-  const { data: cost } = useCostBreakdown(30);
-
-  const apiEquivMonthly = cost?.total.totalUsd ?? 0;
+  const { data: ttl } = useCacheTtlEfficiency(days);
+  const { data: cost } = useCostBreakdown(days);
   const plan = useCurrentPlan();
-  const savings = apiEquivMonthly - (plan?.monthly ?? 0);
+
+  const apiEq = cost?.total.totalUsd ?? 0;
+  const planForRange = ((plan?.monthly ?? 0) * days) / 30;
+  const savings = apiEq - planForRange;
 
   const burnPerMin = win?.burnRatePerMin ?? 0;
   const pct = (win?.percentUsed ?? 0) * 100;
 
-  // Approximate the "waste cost" — TTL premium plus opus-on-mechanical drift.
-  const ttlWaste = ttl?.cost.totalPremiumUsdMonthly ?? 0;
+  // Cache TTL premium — server returns "monthly" projection regardless of
+  // lookback, so scale back to the active range.
+  const ttlWaste = ((ttl?.cost.totalPremiumUsdMonthly ?? 0) * days) / 30;
 
   const allWeekly = wk?.allModels?.percent ?? null;
   const sonnetWeekly = wk?.sonnet?.percent ?? null;
@@ -53,7 +59,7 @@ export function DashboardTicker() {
     },
     { k: 'RESET', v: reset, color: TT.text },
     {
-      k: 'CACHE',
+      k: `CACHE (${label})`,
       v: cache?.overall ? (cache.overall.effectiveness * 100).toFixed(1) + '%' : '—',
       color: TT.green,
     },
@@ -63,16 +69,20 @@ export function DashboardTicker() {
       color: TT.blue,
     },
     {
-      k: 'API EQUIV (30D)',
-      v: fmtUSDCompact(apiEquivMonthly),
+      k: `API EQUIV (${label})`,
+      v: fmtUSDCompact(apiEq),
       color: TT.greenBright,
     },
     {
-      k: 'SAVED VS API',
+      k: `SAVED VS API (${label})`,
       v: fmtUSDCompact(savings),
       color: savings >= 0 ? TT.greenBright : TT.amber,
     },
-    { k: 'WASTE COST', v: fmtUSDCompact(ttlWaste), color: TT.amber },
+    {
+      k: `WASTE COST (${label})`,
+      v: fmtUSDCompact(ttlWaste),
+      color: TT.amber,
+    },
   ];
 
   return (

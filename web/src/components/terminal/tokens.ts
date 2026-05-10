@@ -34,7 +34,7 @@ export const TT_MONO = "'IBM Plex Mono', ui-monospace, 'JetBrains Mono', monospa
 export type Range = '5H' | '24H' | '7D' | '30D';
 
 export const rangeToDays: Record<Range, number> = {
-  '5H': 1,
+  '5H': 5 / 24, // ≈ 0.2083; server queries accept fractional days
   '24H': 1,
   '7D': 7,
   '30D': 30,

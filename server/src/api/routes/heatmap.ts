@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { ApiContext } from '../server.js';
 import { heatmap } from '../../db/queries/heatmap.js';
 
-const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+const Q = z.object({ days: z.coerce.number().min(0.1).max(365).default(30) });
 
 export async function heatmapRoute(
   app: FastifyInstance,

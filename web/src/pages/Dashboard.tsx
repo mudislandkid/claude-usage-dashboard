@@ -71,7 +71,7 @@ export function Dashboard() {
       >
         <span>
           {projects?.projects.length ?? 0} PROJECTS · {totalSessions} SESSIONS ·{' '}
-          {formatTokens(totalTokens)} TOKENS LIFETIME ({range})
+          {formatTokens(totalTokens)} TOKENS LIFETIME · RANGE {range}
         </span>
         <span>
           {win ? `LIMIT ${formatTokens(win.effectiveLimitTokens)}` : '—'} · BRIDGE{' '}

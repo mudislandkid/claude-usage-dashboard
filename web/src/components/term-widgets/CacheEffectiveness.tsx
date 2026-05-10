@@ -3,6 +3,7 @@ import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TBar } from '@/components/terminal/Bar';
 import { TTable } from '@/components/terminal/Table';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useCacheScore } from '@/hooks/useCacheScore';
 import { formatTokens } from '@/lib/format';
 
@@ -14,7 +15,9 @@ interface Row {
 }
 
 export function CacheEffectivenessPanel() {
-  const { data } = useCacheScore();
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useCacheScore(days);
   const nav = useNavigate();
   if (!data) return <TPanel title="CACHE_EFFECTIVENESS">Loading…</TPanel>;
 
@@ -35,7 +38,7 @@ export function CacheEffectivenessPanel() {
   const totalInput = data.byProject.reduce((a, b) => a + b.inputTokens, 0);
 
   return (
-    <TPanel title="CACHE_EFFECTIVENESS" sub="// 7d window" action={`SCORE ${overall}%`}>
+    <TPanel title="CACHE_EFFECTIVENESS" sub={`// ${label} window`} action={`SCORE ${overall}%`}>
       <div style={{ fontFamily: TT_MONO, fontSize: 10, color: TT.textMute, marginBottom: 10 }}>
         {formatTokens(totalReads)} reads · {formatTokens(totalCreation)} created ·{' '}
         {formatTokens(totalInput)} fresh input

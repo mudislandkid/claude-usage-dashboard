@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useHeatmap } from '@/hooks/useHeatmap';
 import { formatTokens } from '@/lib/format';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export function HeatmapPanel() {
-  const { data } = useHeatmap(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useHeatmap(days);
   const [hover, setHover] = useState<string | null>(null);
 
   const grid = useMemo(() => {
@@ -36,7 +39,7 @@ export function HeatmapPanel() {
   return (
     <TPanel
       title="ACTIVITY_HEATMAP"
-      sub="// 30d · local"
+      sub={`// ${label} · local`}
       action={peakLabel}
       accent={TT.purple}
     >

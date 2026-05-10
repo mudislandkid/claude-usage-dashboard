@@ -4,6 +4,7 @@ import { TPanel } from '@/components/terminal/Panel';
 import { TBadge } from '@/components/terminal/Badge';
 import { TBar } from '@/components/terminal/Bar';
 import { TTable } from '@/components/terminal/Table';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useWorstCacheSessions } from '@/hooks/useInsights';
 import { formatTokens } from '@/lib/format';
 
@@ -15,7 +16,9 @@ interface Row {
 }
 
 export function WorstSessionsPanel() {
-  const { data } = useWorstCacheSessions(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useWorstCacheSessions(days);
   const nav = useNavigate();
   if (!data) return <TPanel title="WORST_OFFENDER_SESSIONS">Loading…</TPanel>;
 
@@ -29,7 +32,7 @@ export function WorstSessionsPanel() {
   return (
     <TPanel
       title="WORST_OFFENDER_SESSIONS"
-      sub="// 30d · large sessions w/ low cache score"
+      sub={`// ${label} · large sessions w/ low cache score`}
       action="OPTIMIZATION TARGETS"
       accent={TT.red}
     >

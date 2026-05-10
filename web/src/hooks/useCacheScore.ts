@@ -13,12 +13,12 @@ export interface CacheScoreByProject extends CacheScore {
   projectName: string;
 }
 
-export function useCacheScore() {
+export function useCacheScore(days?: number) {
   return useQuery({
-    queryKey: ['cache'],
+    queryKey: ['cache', days ?? 'default'],
     queryFn: () =>
       api<{ days: number; overall: CacheScore; byProject: CacheScoreByProject[] }>(
-        `/cache-effectiveness`,
+        days ? `/cache-effectiveness?days=${days}` : `/cache-effectiveness`,
       ),
   });
 }

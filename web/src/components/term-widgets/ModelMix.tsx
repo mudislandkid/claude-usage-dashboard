@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TTable } from '@/components/terminal/Table';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useModelMix } from '@/hooks/useModelMix';
 import { formatTokens } from '@/lib/format';
 
@@ -17,7 +18,9 @@ interface Row {
 }
 
 export function ModelMixPanel() {
-  const { data } = useModelMix(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useModelMix(days);
   const nav = useNavigate();
   if (!data) return <TPanel title="MODEL_MIX_PER_PROJECT">Loading…</TPanel>;
 
@@ -39,7 +42,7 @@ export function ModelMixPanel() {
   return (
     <TPanel
       title="MODEL_MIX_PER_PROJECT"
-      sub="// 30d normalized"
+      sub={`// ${label} normalized`}
       action="OPUS · SONNET · HAIKU · OTHER"
     >
       <TTable<Row>

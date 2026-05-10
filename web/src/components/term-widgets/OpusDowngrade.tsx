@@ -3,6 +3,7 @@ import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TBadge } from '@/components/terminal/Badge';
 import { TTable } from '@/components/terminal/Table';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useModelRecommendations } from '@/hooks/useToolUse';
 
 interface Row {
@@ -13,7 +14,9 @@ interface Row {
 }
 
 export function OpusDowngradePanel() {
-  const { data } = useModelRecommendations(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useModelRecommendations(days);
   const nav = useNavigate();
   if (!data) return <TPanel title="OPUS_DOWNGRADE_CANDIDATES">Loading…</TPanel>;
 
@@ -31,7 +34,7 @@ export function OpusDowngradePanel() {
   return (
     <TPanel
       title="OPUS_DOWNGRADE_CANDIDATES"
-      sub="// mechanical workload heuristic"
+      sub={`// ${label} · mechanical workload heuristic`}
       action={rows.length > 0 ? 'ACTION REQ' : 'CLEAN'}
       accent={TT.amber}
     >

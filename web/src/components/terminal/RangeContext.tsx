@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import type { Range } from './tokens';
+import { rangeToDays, type Range } from './tokens';
 
 interface Ctx {
   range: Range;
@@ -16,3 +16,21 @@ export function RangeProvider({ children }: { children: ReactNode }) {
 export function useRange() {
   return useContext(RangeCtx);
 }
+
+/** Days lookback for the currently-selected range. */
+export function useRangeDays(): number {
+  return rangeToDays[useContext(RangeCtx).range];
+}
+
+/** Human label for inline sub-text inside panels. */
+export function useRangeLabel(): string {
+  const { range } = useContext(RangeCtx);
+  return RANGE_LABEL[range];
+}
+
+const RANGE_LABEL: Record<Range, string> = {
+  '5H': '5h',
+  '24H': '24h',
+  '7D': '7d',
+  '30D': '30d',
+};

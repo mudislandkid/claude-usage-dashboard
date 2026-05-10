@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { ApiContext } from '../server.js';
 import { peakWindow } from '../../db/queries/window.js';
 
-const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+const Q = z.object({ days: z.coerce.number().min(0.1).max(365).default(30) });
 
 export async function peakWindowRoute(
   app: FastifyInstance,

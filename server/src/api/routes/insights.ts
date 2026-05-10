@@ -19,7 +19,7 @@ import {
 } from '../../db/queries/heavy.js';
 import { cacheTtlEfficiency } from '../../db/queries/cacheTtl.js';
 
-const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+const Q = z.object({ days: z.coerce.number().min(0.1).max(365).default(30) });
 
 export async function insightsRoutes(
   app: FastifyInstance,

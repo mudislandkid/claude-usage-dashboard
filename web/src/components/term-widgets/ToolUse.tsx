@@ -2,6 +2,7 @@ import { TT } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TBar } from '@/components/terminal/Bar';
 import { TTable } from '@/components/terminal/Table';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useToolUse } from '@/hooks/useToolUse';
 
 interface Row {
@@ -22,7 +23,9 @@ function colorFor(name: string): string {
 }
 
 export function ToolUsePanel() {
-  const { data } = useToolUse(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useToolUse(days);
   if (!data) return <TPanel title="TOOL_USE">Loading…</TPanel>;
 
   const tools = data.tools.slice(0, 12);
@@ -35,7 +38,7 @@ export function ToolUsePanel() {
   }));
 
   return (
-    <TPanel title="TOOL_USE" sub="// 30d" action={`TOP ${tools.length}`}>
+    <TPanel title="TOOL_USE" sub={`// ${label}`} action={`TOP ${tools.length}`}>
       <TTable<Row>
         columns={[
           { key: 'idx', label: '#', w: '24px' },

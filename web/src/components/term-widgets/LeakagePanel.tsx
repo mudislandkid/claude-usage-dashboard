@@ -5,6 +5,7 @@ import { TBadge } from '@/components/terminal/Badge';
 import { TBar } from '@/components/terminal/Bar';
 import { TCell } from '@/components/terminal/Cell';
 import { TTable } from '@/components/terminal/Table';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useTtlLeakage } from '@/hooks/useHeavy';
 import { useCacheTtlEfficiency } from '@/hooks/useCacheTtl';
 import { formatTokens } from '@/lib/format';
@@ -18,8 +19,10 @@ interface Row {
 }
 
 export function LeakagePanel() {
-  const { data } = useTtlLeakage(30);
-  const { data: ttl } = useCacheTtlEfficiency(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useTtlLeakage(days);
+  const { data: ttl } = useCacheTtlEfficiency(days);
   const nav = useNavigate();
   if (!data) return <TPanel title="1H_CACHE_LEAKAGE">Loading…</TPanel>;
 
@@ -40,7 +43,7 @@ export function LeakagePanel() {
   return (
     <TPanel
       title="1H_CACHE_LEAKAGE"
-      sub="// next-turn heuristic"
+      sub={`// ${label} · next-turn heuristic`}
       action={`${pct}% LEAKED`}
       accent={TT.red}
     >
@@ -78,7 +81,7 @@ export function LeakagePanel() {
         <TCell
           label="API_$_LEAKED"
           v={fmtUSD(apiLeaked)}
-          sub="if billed per-token · 30d"
+          sub={`if billed per-token · ${label}`}
           color={TT.red}
         />
         <TCell label="YOUR_COST" v="$0.00" sub="covered by subscription" color={TT.greenBright} />

@@ -1,5 +1,6 @@
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useCostBreakdown, type ModelBucket } from '@/hooks/useCostBreakdown';
 import { useCurrentPlan } from '@/hooks/useCurrentPlan';
 import { fmtUSD, PLAN_DEFS } from '@/lib/pricing';
@@ -20,21 +21,27 @@ const MODEL_LABELS: Record<string, string> = {
 };
 
 export function SubscriptionValuePanel() {
-  const { data: cost } = useCostBreakdown(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data: cost } = useCostBreakdown(days);
   const plan = useCurrentPlan();
   if (!cost || !plan) return <TPanel title="SUBSCRIPTION_VALUE">Loading…</TPanel>;
 
   const apiEq = cost.total.totalUsd;
-  const sub = plan.monthly;
-  const saved = apiEq - sub;
-  const mult = sub > 0 ? apiEq / sub : 0;
-  const payoffDays = apiEq > 0 ? sub / (apiEq / 30) : 0;
-  const dailyAvg = apiEq / 30;
+  const monthlyPlan = plan.monthly;
+  // Pro-rate plan cost across the active range so the comparison is apples-
+  // to-apples ("for these N days you'd have paid $X on the API; your plan
+  // share for the same N days is $Y").
+  const subForRange = (monthlyPlan * days) / 30;
+  const saved = apiEq - subForRange;
+  const mult = subForRange > 0 ? apiEq / subForRange : 0;
+  const payoffDays = apiEq > 0 ? subForRange / (apiEq / days) : 0;
+  const dailyAvg = apiEq / days;
 
   return (
     <TPanel
       title="SUBSCRIPTION_VALUE"
-      sub={`// 30d · ${plan.name.toLowerCase()} vs api equivalent · input + output + cache writes + cache reads`}
+      sub={`// ${label} · ${plan.name.toLowerCase()} vs api equivalent · input + output + cache writes + cache reads`}
       action={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
           <PricingTooltip />
@@ -54,7 +61,7 @@ export function SubscriptionValuePanel() {
               marginBottom: 6,
             }}
           >
-            YOU SAVED (LAST 30D)
+            YOU SAVED (LAST {label.toUpperCase()})
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 14 }}>
             <span
@@ -82,8 +89,22 @@ export function SubscriptionValuePanel() {
               border: `1px solid ${TT.borderHi}`,
             }}
           >
-            <Val label="SUBSCRIPTION" v={fmtUSD(sub)} sub={`${plan.name} · monthly`} color={TT.text} />
-            <Val label="API_EQUIVALENT" v={fmtUSD(apiEq)} sub="if billed per-token" color={TT.amber} />
+            <Val
+              label="PLAN_SHARE"
+              v={fmtUSD(subForRange)}
+              sub={
+                days === 30
+                  ? `${plan.name} · monthly`
+                  : `${plan.name} · ${label} of ${fmtUSD(monthlyPlan)}/mo`
+              }
+              color={TT.text}
+            />
+            <Val
+              label="API_EQUIVALENT"
+              v={fmtUSD(apiEq)}
+              sub={`${label} · if billed per-token`}
+              color={TT.amber}
+            />
             <Val
               label="EFFECTIVE_RATE"
               v={mult > 0 ? mult.toFixed(1) + '×' : '—'}
@@ -91,7 +112,7 @@ export function SubscriptionValuePanel() {
               color={TT.greenBright}
             />
           </div>
-          {sub > 0 && (
+          {monthlyPlan > 0 && (
             <div
               style={{
                 marginTop: 14,
@@ -104,12 +125,12 @@ export function SubscriptionValuePanel() {
                 lineHeight: 1.6,
               }}
             >
-              <span style={{ color: TT.greenBright }}>▸</span> At current burn the subscription
-              pays itself off in{' '}
+              <span style={{ color: TT.greenBright }}>▸</span> At this burn the monthly
+              subscription ({fmtUSD(monthlyPlan)}) pays itself off in{' '}
               <span style={{ color: TT.greenBright }}>~{payoffDays.toFixed(1)} days</span> of
               API-equivalent usage.
               <br />
-              <span style={{ color: TT.green }}>▸</span> Daily API-equiv avg:{' '}
+              <span style={{ color: TT.green }}>▸</span> Daily API-equiv avg over {label}:{' '}
               <span style={{ color: TT.green }}>{fmtUSD(dailyAvg)}</span>
             </div>
           )}
@@ -125,9 +146,9 @@ export function SubscriptionValuePanel() {
               marginBottom: 10,
             }}
           >
-            PLAN COMPARISON — 30D ACTUAL USAGE
+            PLAN COMPARISON — {label.toUpperCase()} ACTUAL USAGE
           </div>
-          <PlanCompare apiEq={apiEq} currentPlan={plan.id} />
+          <PlanCompare apiEq={apiEq} currentPlan={plan.id} days={days} />
         </div>
       </div>
 
@@ -141,7 +162,7 @@ export function SubscriptionValuePanel() {
             marginBottom: 10,
           }}
         >
-          API-EQUIV COST BY MODEL — 30D
+          API-EQUIV COST BY MODEL — {label.toUpperCase()}
         </div>
         <ModelCostBars byModel={cost.byModel} />
       </div>
@@ -156,7 +177,7 @@ export function SubscriptionValuePanel() {
             marginBottom: 10,
           }}
         >
-          API-EQUIV COST BY BUCKET — 30D
+          API-EQUIV COST BY BUCKET — {label.toUpperCase()}
         </div>
         <BucketBreakdown total={cost.total} />
       </div>
@@ -184,20 +205,56 @@ function Val({ label, v, sub, color }: { label: string; v: string; sub: string; 
   );
 }
 
-function PlanCompare({ apiEq, currentPlan }: { apiEq: number; currentPlan: string }) {
+function PlanCompare({
+  apiEq,
+  currentPlan,
+  days,
+}: {
+  apiEq: number;
+  currentPlan: string;
+  days: number;
+}) {
+  // Pro-rate plan monthly cost to the selected range so the bars compare like
+  // for like against the API equivalent.
+  const factor = days / 30;
   const rows = [
-    { id: 'pro', name: PLAN_DEFS.pro.name, monthly: PLAN_DEFS.pro.monthly, note: '~1.1M/5h', color: TT.textMute },
-    { id: 'max5', name: PLAN_DEFS.max5.name, monthly: PLAN_DEFS.max5.monthly, note: '~5.5M/5h', color: TT.blue },
-    { id: 'max20', name: PLAN_DEFS.max20.name, monthly: PLAN_DEFS.max20.monthly, note: '~21.5M/5h', color: TT.greenBright },
-    { id: 'api', name: 'API', monthly: apiEq, note: 'pay-per-token', color: TT.amber, isApi: true as const },
+    {
+      id: 'pro',
+      name: PLAN_DEFS.pro.name,
+      cost: PLAN_DEFS.pro.monthly * factor,
+      note: '~1.1M/5h',
+      color: TT.textMute,
+    },
+    {
+      id: 'max5',
+      name: PLAN_DEFS.max5.name,
+      cost: PLAN_DEFS.max5.monthly * factor,
+      note: '~5.5M/5h',
+      color: TT.blue,
+    },
+    {
+      id: 'max20',
+      name: PLAN_DEFS.max20.name,
+      cost: PLAN_DEFS.max20.monthly * factor,
+      note: '~21.5M/5h',
+      color: TT.greenBright,
+    },
+    {
+      id: 'api',
+      name: 'API',
+      cost: apiEq,
+      note: 'pay-per-token',
+      color: TT.amber,
+      isApi: true as const,
+    },
   ];
-  const max = Math.max(...rows.map((r) => r.monthly), 1);
+  const max = Math.max(...rows.map((r) => r.cost), 1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {rows.map((r) => {
         const current = currentPlan === r.id;
-        const widthPct = (r.monthly / max) * 100;
+        const widthPct = (r.cost / max) * 100;
         return (
           <div key={r.name} style={{ position: 'relative' }}>
             <div
@@ -212,11 +269,13 @@ function PlanCompare({ apiEq, currentPlan }: { apiEq: number; currentPlan: strin
               <span style={{ color: current ? TT.greenBright : r.color }}>
                 {current ? '▶ ' : ''}
                 {r.name}
-                <span style={{ color: TT.textDim, fontSize: 10, marginLeft: 8 }}>{r.note}</span>
+                <span style={{ color: TT.textDim, fontSize: 10, marginLeft: 8 }}>
+                  {r.note}
+                </span>
               </span>
               <span style={{ color: r.color }}>
-                {fmtUSD(r.monthly)}
-                {'isApi' in r ? '' : '/mo'}
+                {fmtUSD(r.cost)}
+                {'isApi' in r ? '' : days === 30 ? '/mo' : ''}
               </span>
             </div>
             <div

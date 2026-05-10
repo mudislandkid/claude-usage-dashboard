@@ -4,7 +4,7 @@ import type { ApiContext } from '../server.js';
 import { overallCacheScore, cacheScoreByProject } from '../../db/queries/cache.js';
 import { getSettings } from '../../db/queries/settings.js';
 
-const Q = z.object({ days: z.coerce.number().int().min(1).max(365).optional() });
+const Q = z.object({ days: z.coerce.number().min(0.1).max(365).optional() });
 
 export async function cacheRoutes(
   app: FastifyInstance,

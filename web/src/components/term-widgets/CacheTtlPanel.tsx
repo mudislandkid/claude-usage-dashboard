@@ -2,12 +2,15 @@ import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TBar } from '@/components/terminal/Bar';
 import { TCell } from '@/components/terminal/Cell';
+import { useRangeDays, useRangeLabel } from '@/components/terminal/RangeContext';
 import { useCacheTtlEfficiency } from '@/hooks/useCacheTtl';
 import { formatTokens } from '@/lib/format';
 import { fmtUSD } from '@/lib/pricing';
 
 export function CacheTtlPanel() {
-  const { data } = useCacheTtlEfficiency(30);
+  const days = useRangeDays();
+  const label = useRangeLabel();
+  const { data } = useCacheTtlEfficiency(days);
   if (!data) return <TPanel title="CACHE_TTL_EFFICIENCY">Loading…</TPanel>;
 
   const t = data.totals;
@@ -23,7 +26,7 @@ export function CacheTtlPanel() {
   return (
     <TPanel
       title="CACHE_TTL_EFFICIENCY"
-      sub="// 30d · 5m vs 1h TTL classification"
+      sub={`// ${label} · 5m vs 1h TTL classification`}
       action={`WASTED ${wastePct.toFixed(1)}%`}
       accent={TT.amber}
     >

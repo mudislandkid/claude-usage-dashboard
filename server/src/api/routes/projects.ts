@@ -19,7 +19,7 @@ import { gitStats } from '../../git/gitStats.js';
 import { getSettings } from '../../db/queries/settings.js';
 
 const ParamsSchema = z.object({ id: z.string().min(1) });
-const Q = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+const Q = z.object({ days: z.coerce.number().min(0.1).max(365).default(30) });
 
 export async function projectsRoutes(
   app: FastifyInstance,
