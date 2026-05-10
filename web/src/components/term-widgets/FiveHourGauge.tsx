@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TCell } from '@/components/terminal/Cell';
@@ -6,13 +7,17 @@ import { useWindow } from '@/hooks/useWindow';
 import { formatTokens, formatDuration } from '@/lib/format';
 
 export function FiveHourGaugePanel() {
-  const { data } = useWindow();
+  const { data, dataUpdatedAt } = useWindow();
+  const interpolated = useInterpolatedWindow(data, dataUpdatedAt);
   if (!data) return <TPanel title="5H_ROLLING_WINDOW">Loading…</TPanel>;
 
-  const pct = Math.min(100, data.percentUsed * 100);
-  const used = data.totalChargeable;
   const limit = data.effectiveLimitTokens;
   const burn = data.burnRatePerMin;
+  // Use the interpolated `used` so the % drifts smoothly between server polls
+  // (rather than stepping every 10s). The server is still the source of truth
+  // and overwrites this on each refetch.
+  const used = Math.min(limit, interpolated.used);
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
   const headroom = Math.max(0, limit - used);
   const cacheReads = data.cacheReadTokens;
 
@@ -231,4 +236,57 @@ export function FiveHourGaugePanel() {
       )}
     </TPanel>
   );
+}
+
+interface WindowSnapshot {
+  totalChargeable: number;
+  burnRatePerMin: number;
+  windowActive: boolean;
+  effectiveLimitTokens: number;
+}
+
+/**
+ * Between the server's 10s window polls, project `used` forward at the
+ * current burn rate so the gauge ticks every second instead of stepping
+ * once per refetch. The server's authoritative value overwrites this on
+ * each refetch (via `dataUpdatedAt`) so drift can never accumulate past
+ * the next poll cycle.
+ */
+function useInterpolatedWindow(
+  data: WindowSnapshot | undefined,
+  dataUpdatedAt: number,
+): { used: number } {
+  const [used, setUsed] = useState<number>(data?.totalChargeable ?? 0);
+  const lastAnchorMs = useRef<number>(dataUpdatedAt);
+  const lastServerUsed = useRef<number>(data?.totalChargeable ?? 0);
+  const burnPerMin = useRef<number>(data?.burnRatePerMin ?? 0);
+  const active = useRef<boolean>(data?.windowActive ?? false);
+  const cap = useRef<number>(data?.effectiveLimitTokens ?? 0);
+
+  // Re-anchor whenever the server returns a fresh snapshot.
+  useEffect(() => {
+    if (!data) return;
+    lastAnchorMs.current = dataUpdatedAt;
+    lastServerUsed.current = data.totalChargeable;
+    burnPerMin.current = data.burnRatePerMin;
+    active.current = data.windowActive;
+    cap.current = data.effectiveLimitTokens;
+    setUsed(data.totalChargeable);
+  }, [data, dataUpdatedAt]);
+
+  // 1Hz tick — extrapolate used forward at burn rate.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (!active.current || burnPerMin.current <= 0) return;
+      const elapsedMin = (Date.now() - lastAnchorMs.current) / 60_000;
+      const next = Math.min(
+        cap.current || Infinity,
+        lastServerUsed.current + burnPerMin.current * elapsedMin,
+      );
+      setUsed(next);
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  return { used };
 }

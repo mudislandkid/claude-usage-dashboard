@@ -35,6 +35,9 @@ export function useWindow() {
   return useQuery({
     queryKey: ['window'],
     queryFn: () => api<WindowResponse>('/window'),
-    refetchInterval: 30_000,
+    // 10s poll keeps the 5h gauge feeling live without hammering the server.
+    // Between polls, FiveHourGaugePanel interpolates used = served + burn × Δt
+    // so the % drifts smoothly each second instead of stepping every 10s.
+    refetchInterval: 10_000,
   });
 }
