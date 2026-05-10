@@ -2,30 +2,134 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 96%;
-    --primary: 210 40% 96%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 63% 45%;
-    --destructive-foreground: 210 40% 96%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 33% 30%;
-    --radius: 0.5rem;
-  }
+:root {
+  --tt-bg: #08090a;
+  --tt-bg-alt: #0c0e10;
+  --tt-panel: #101315;
+  --tt-panel-hi: #13171a;
+  --tt-border: rgba(120, 200, 140, 0.08);
+  --tt-border-hi: rgba(120, 200, 140, 0.18);
+  --tt-text: #dde4de;
+  --tt-text-hi: #f1f6f3;
+  --tt-text-mute: #7d8a82;
+  --tt-text-dim: #4a544e;
+  --tt-green: #4ade80;
+  --tt-green-bright: #86efac;
+  --tt-amber: #fbbf24;
+  --tt-red: #f87171;
+  --tt-blue: #7dd3fc;
+  --tt-cyan: #67e8f9;
+  --tt-purple: #c4b5fd;
 
-  body {
-    @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  /* shadcn fall-backs (legacy widgets that haven't been ported yet) */
+  --background: 222 47% 6%;
+  --foreground: 210 40% 96%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 96%;
+  --primary: 210 40% 96%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 96%;
+  --destructive: 0 63% 45%;
+  --destructive-foreground: 210 40% 96%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 217 33% 30%;
+  --radius: 0.5rem;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--tt-bg);
+  color: var(--tt-text);
+  font-family: 'IBM Plex Mono', ui-monospace, 'JetBrains Mono', monospace;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+body {
+  overflow-x: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+#root {
+  min-height: 100vh;
+}
+
+@keyframes tt-pulse {
+  0%,
+  100% {
+    opacity: 1;
   }
+  50% {
+    opacity: 0.5;
+  }
+}
+@keyframes tt-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+@keyframes tt-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes tt-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+.tt-fade {
+  animation: tt-fade-in 200ms ease-out;
+}
+.tt-blink {
+  animation: tt-blink 1.2s step-end infinite;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 200, 140, 0.15);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 200, 140, 0.3);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Hide spin buttons on number inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

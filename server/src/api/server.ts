@@ -13,6 +13,7 @@ import { modelMixRoute } from './routes/modelMix.js';
 import { settingsRoutes } from './routes/settings.js';
 import { scanRoute } from './routes/scan.js';
 import { insightsRoutes } from './routes/insights.js';
+import { costBreakdownRoute } from './routes/costBreakdown.js';
 
 export interface ApiContext {
   db: DB;
@@ -34,5 +35,6 @@ export async function buildApi(ctx: ApiContext): Promise<FastifyInstance> {
   app.register(settingsRoutes, { prefix: '/api', ctx });
   app.register(scanRoute, { prefix: '/api', ctx });
   app.register(insightsRoutes, { prefix: '/api', ctx });
+  app.register(costBreakdownRoute, { prefix: '/api', ctx });
   return app;
 }

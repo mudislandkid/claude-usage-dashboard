@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import { AppShell } from '@/components/layout/AppShell';
+import { TAppShell } from '@/components/terminal/AppShell';
 import { Dashboard } from '@/pages/Dashboard';
 import { Projects } from '@/pages/Projects';
 import { ProjectDetail } from '@/pages/ProjectDetail';
@@ -9,7 +9,7 @@ import { Compare } from '@/pages/Compare';
 
 export default function App() {
   return (
-    <AppShell>
+    <TAppShell>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
@@ -18,6 +18,6 @@ export default function App() {
         <Route path="/sessions/:id" element={<SessionDetail />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
-    </AppShell>
+    </TAppShell>
   );
 }

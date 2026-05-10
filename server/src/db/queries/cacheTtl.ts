@@ -1,30 +1,14 @@
 import type { DB } from '../connection.js';
 import { classifyModel, type ModelFamily } from './modelMix.js';
+import { PRICING } from '../../pricing.js';
 
 /**
- * Per-model **input** rates ($/MTok) used to derive the dollar premium of a
- * 1h cache write over a 5m one. Cache write multipliers (Anthropic published):
- *   - 5m TTL: 1.25 × input
- *   - 1h TTL: 2.00 × input
- *   - delta:  0.75 × input
- *
- * These are the current public API list prices as of 2026-05 (Opus 4.5/4.6/4.7
- * generation, Sonnet 4.x, Haiku 4.5). Legacy Opus 4.1 / Opus 4 / Opus 3 are
- * priced 3× higher ($15/MTok input), but are deprecated; we use the current
- * rate to match what Anthropic would actually pay today on the same workload.
- *
- * Subscription-plan users pay nothing per token directly, but Anthropic's
- * compute bill scales with these. The cost figures are useful for ecosystem
- * advocacy (filing an issue with Claude Code) even if the user isn't billed
- * personally.
+ * Premium of a 1h cache write over a 5m one, expressed as a factor on the
+ * base input rate. Anthropic's published multipliers are 1.25× (5m) and
+ * 2.00× (1h), so the avoidable delta is 0.75 × input. Pricing rates live in
+ * `server/src/pricing.ts` and are shared with the API cost-equivalent calc.
  */
-const INPUT_RATE_PER_MTOK: Record<ModelFamily, number> = {
-  opus: 5, // Opus 4.5+, was $15 for legacy Opus 4.1/4/3
-  sonnet: 3, // Sonnet 4.x and 3.7
-  haiku: 1, // Haiku 4.5; legacy Haiku 3.5 was $0.80
-  other: 3, // unknown model family — use Sonnet rate as a reasonable mid-point
-};
-const TTL_PREMIUM_FACTOR = 0.75; // (2.00 - 1.25)
+const TTL_PREMIUM_FACTOR = 0.75;
 
 const HISTOGRAM_BUCKETS_MIN: Array<{ label: string; loMin: number; hiMin: number }> = [
   { label: '<1m', loMin: 0, hiMin: 1 },
@@ -250,7 +234,7 @@ export function cacheTtlEfficiency(db: DB, days: number): CacheTtlEfficiency {
   for (const family of ['opus', 'sonnet', 'haiku', 'other'] as const) {
     const w = wastedByModel.get(family) ?? 0;
     if (w === 0) continue;
-    const rate = INPUT_RATE_PER_MTOK[family];
+    const rate = PRICING[family].input;
     const premium = (w / 1_000_000) * rate * TTL_PREMIUM_FACTOR;
     perModel.push({ model: family, wastedTokens: w, premiumUsd: premium });
     totalPremiumUsdSampled += premium;

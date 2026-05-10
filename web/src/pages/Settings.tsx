@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { TT, TT_MONO } from '@/components/terminal/tokens';
+import { TPanel } from '@/components/terminal/Panel';
 import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import { usePeakWindow } from '@/hooks/usePeakWindow';
 import { PLAN_PRESETS, CUSTOM_PLAN, detectPlan } from '@/lib/plans';
 import { formatTokens } from '@/lib/format';
-import { StatuslineBridgeCard } from '@/components/widgets/StatuslineBridgeCard';
-import { OauthUsageCard } from '@/components/widgets/OauthUsageCard';
-import { CacheTtlShareCard } from '@/components/widgets/CacheTtlShareCard';
+import { StatuslineBridgePanel } from '@/components/term-widgets/SettingsBridge';
+import { OauthPanel } from '@/components/term-widgets/SettingsOauth';
 
 export function Settings() {
-  const { data, isLoading } = useSettings();
+  const { data } = useSettings();
   const update = useUpdateSettings();
   const { data: peak } = usePeakWindow(30);
 
@@ -45,7 +43,7 @@ export function Settings() {
     if (preset) setWindowLimit(String(preset.windowLimitTokens));
   }
 
-  function applyAutoCalibrate() {
+  function autoCalibrate() {
     if (suggestedFromUsage) {
       setWindowLimit(String(suggestedFromUsage));
       setPlanId(CUSTOM_PLAN.id);
@@ -60,112 +58,187 @@ export function Settings() {
     });
   }
 
-  if (isLoading || !data) return <Skeleton className="h-72" />;
-
   return (
-    <div className="space-y-6 max-w-2xl">
-      <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
+    <div
+      style={{
+        padding: '20px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        maxWidth: 1100,
+      }}
+      className="tt-fade"
+    >
+      <StatuslineBridgePanel />
+      <OauthPanel />
 
-      <StatuslineBridgeCard />
+      <TPanel title="5H_WINDOW_LIMIT" sub="// chargeable token cap">
+        <p
+          style={{
+            fontFamily: TT_MONO,
+            fontSize: 11,
+            color: TT.textMute,
+            marginTop: 0,
+            marginBottom: 16,
+            lineHeight: 1.5,
+          }}
+        >
+          Anthropic doesn't publish exact token caps. Plan presets below are rough estimates;
+          auto-calibrate uses your own observed peaks for the most accurate value.
+        </p>
 
-      <OauthUsageCard />
+        <FieldLabel>PLAN</FieldLabel>
+        <select
+          value={planId}
+          onChange={(e) => handlePlanChange(e.target.value)}
+          style={inputStyle}
+        >
+          {PLAN_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label} — {formatTokens(p.windowLimitTokens)}/5h
+            </option>
+          ))}
+          <option value={CUSTOM_PLAN.id}>{CUSTOM_PLAN.label}</option>
+        </select>
+        <Hint>{planPreset.blurb}</Hint>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>5-hour window limit</CardTitle>
-          <p className="text-xs text-muted-foreground pt-1">
-            Anthropic doesn't publish exact token caps. Plan presets below are rough estimates;
-            auto-calibrate uses your own observed peaks for the most accurate value.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Field label="Plan">
-            <select
-              value={planId}
-              onChange={(e) => handlePlanChange(e.target.value)}
-              className="bg-input rounded-md px-3 py-2 text-sm w-full border border-border"
-            >
-              {PLAN_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label} — {formatTokens(p.windowLimitTokens)}/5h
-                </option>
-              ))}
-              <option value={CUSTOM_PLAN.id}>{CUSTOM_PLAN.label}</option>
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">{planPreset.blurb}</p>
-          </Field>
+        <div style={{ height: 18 }} />
+        <FieldLabel>AUTO-CALIBRATE FROM YOUR USAGE</FieldLabel>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={autoCalibrate}
+            disabled={!suggestedFromUsage}
+            style={{
+              background: TT.bgAlt,
+              border: `1px solid ${TT.border}`,
+              color: suggestedFromUsage ? TT.text : TT.textDim,
+              fontFamily: TT_MONO,
+              fontSize: 11,
+              padding: '8px 14px',
+              cursor: suggestedFromUsage ? 'pointer' : 'not-allowed',
+              opacity: suggestedFromUsage ? 1 : 0.6,
+            }}
+          >
+            {suggestedFromUsage
+              ? `Use my p95 × 1.1 = ${formatTokens(suggestedFromUsage)}`
+              : 'Not enough data yet'}
+          </button>
+          {peak && peak.samples > 0 && (
+            <span style={{ fontFamily: TT_MONO, fontSize: 10, color: TT.textMute }}>
+              Last 30d: max {formatTokens(peak.max)} · p99 {formatTokens(peak.p99)} · p95{' '}
+              {formatTokens(peak.p95)} ({peak.samples} samples)
+            </span>
+          )}
+        </div>
 
-          <Field label="Auto-calibrate from your usage">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={applyAutoCalibrate}
-                disabled={!suggestedFromUsage}
-              >
-                {suggestedFromUsage
-                  ? `Use my p95 × 1.1 = ${formatTokens(suggestedFromUsage)}`
-                  : 'Not enough data yet'}
-              </Button>
-              {peak && peak.samples > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Last 30d: max {formatTokens(peak.max)} • p99 {formatTokens(peak.p99)} • p95{' '}
-                  {formatTokens(peak.p95)} ({peak.samples} samples)
-                </span>
-              )}
-            </div>
-          </Field>
+        <div style={{ height: 18 }} />
+        <FieldLabel>LIMIT (CHARGEABLE TOKENS / 5H)</FieldLabel>
+        <input
+          value={windowLimit}
+          onChange={(e) => {
+            setWindowLimit(e.target.value);
+            setPlanId(CUSTOM_PLAN.id);
+          }}
+          style={inputStyle}
+        />
+      </TPanel>
 
-          <Field label="Limit (chargeable tokens / 5h)">
-            <input
-              value={windowLimit}
-              onChange={(e) => {
-                setWindowLimit(e.target.value);
-                setPlanId(CUSTOM_PLAN.id);
-              }}
-              className="bg-input rounded-md px-3 py-2 text-sm w-full font-mono"
-            />
-          </Field>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Other thresholds</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Field label="Active project threshold (days)">
+      <TPanel title="OTHER_THRESHOLDS">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <FieldLabel>ACTIVE PROJECT THRESHOLD (DAYS)</FieldLabel>
             <input
               value={activeDays}
               onChange={(e) => setActiveDays(e.target.value)}
-              className="bg-input rounded-md px-3 py-2 text-sm w-full"
+              style={inputStyle}
             />
-          </Field>
-          <Field label="Cache score window (days)">
+          </div>
+          <div>
+            <FieldLabel>CACHE SCORE WINDOW (DAYS)</FieldLabel>
             <input
               value={cacheDays}
               onChange={(e) => setCacheDays(e.target.value)}
-              className="bg-input rounded-md px-3 py-2 text-sm w-full"
+              style={inputStyle}
             />
-          </Field>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={update.isPending}>
-          {update.isPending ? 'Saving…' : 'Save'}
-        </Button>
-      </div>
-
-      <CacheTtlShareCard />
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18, gap: 10 }}>
+          {update.isSuccess && (
+            <span
+              style={{
+                color: TT.green,
+                fontFamily: TT_MONO,
+                fontSize: 11,
+                alignSelf: 'center',
+              }}
+            >
+              ✓ saved
+            </span>
+          )}
+          <button
+            onClick={save}
+            disabled={update.isPending}
+            style={{
+              background: TT.green,
+              border: `1px solid ${TT.green}`,
+              color: '#08090a',
+              fontFamily: TT_MONO,
+              fontSize: 11,
+              fontWeight: 600,
+              padding: '8px 22px',
+              cursor: 'pointer',
+              letterSpacing: '0.08em',
+              opacity: update.isPending ? 0.6 : 1,
+            }}
+          >
+            {update.isPending ? 'SAVING…' : 'SAVE_CONFIG'}
+          </button>
+        </div>
+      </TPanel>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: TT.bgAlt,
+  border: `1px solid ${TT.border}`,
+  padding: '8px 12px',
+  color: TT.text,
+  fontFamily: TT_MONO,
+  fontSize: 12,
+  outline: 'none',
+  boxSizing: 'border-box',
+};
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="text-xs uppercase text-muted-foreground tracking-wide">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
+    <div
+      style={{
+        fontFamily: TT_MONO,
+        fontSize: 9,
+        color: TT.textDim,
+        letterSpacing: '0.10em',
+        marginBottom: 8,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontFamily: TT_MONO,
+        fontSize: 10,
+        color: TT.textMute,
+        marginTop: 6,
+        lineHeight: 1.4,
+      }}
+    >
+      {children}
+    </div>
   );
 }
