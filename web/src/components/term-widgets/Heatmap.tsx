@@ -28,6 +28,8 @@ export function HeatmapPanel() {
     return { g, max, peak };
   }, [data]);
 
+  const insights = useMemo(() => deriveInsights(grid.g), [grid]);
+
   if (!data) return <TPanel title="ACTIVITY_HEATMAP">Loading…</TPanel>;
 
   const cell = 22;
@@ -120,6 +122,145 @@ export function HeatmapPanel() {
           <span>PEAK</span>
         </div>
       </div>
+
+      {insights && (
+        <div
+          style={{
+            marginTop: 16,
+            paddingTop: 14,
+            borderTop: `1px dashed ${TT.border}`,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 14,
+            fontFamily: TT_MONO,
+            fontSize: 10,
+            color: TT.textMute,
+            lineHeight: 1.5,
+          }}
+        >
+          <Insight
+            label="MOST_ACTIVE_HOUR"
+            value={`${pad(insights.topHour.hour)}:00–${pad((insights.topHour.hour + 1) % 24)}:00`}
+            sub={`${formatTokens(insights.topHour.tokens)} · ${insights.topHour.pct.toFixed(0)}% of total`}
+            color={TT.purple}
+          />
+          <Insight
+            label="MOST_ACTIVE_DAY"
+            value={DAYS[insights.topDay.day] ?? '—'}
+            sub={`${formatTokens(insights.topDay.tokens)} · ${insights.topDay.pct.toFixed(0)}% of total`}
+            color={TT.green}
+          />
+          <Insight
+            label="PEAK_CELL"
+            value={`${DAYS[grid.peak.day]} ${pad(grid.peak.hour)}:00`}
+            sub={`${formatTokens(grid.peak.tokens)} in one hour`}
+            color={TT.amber}
+          />
+          <Insight
+            label="WEEKDAYS_VS_WEEKENDS"
+            value={`${insights.weekdayPct.toFixed(0)}% / ${(100 - insights.weekdayPct).toFixed(0)}%`}
+            sub={`mon–fri vs sat–sun share`}
+            color={TT.blue}
+          />
+          <Insight
+            label="WORKING_HOURS"
+            value={`${insights.workingHoursPct.toFixed(0)}%`}
+            sub={`09:00–18:00 share`}
+            color={TT.blue}
+          />
+          <Insight
+            label="LATE_NIGHT"
+            value={`${insights.lateNightPct.toFixed(0)}%`}
+            sub={`22:00–04:00 share`}
+            color={
+              insights.lateNightPct > 25
+                ? TT.amber
+                : insights.lateNightPct > 10
+                  ? TT.blue
+                  : TT.textMute
+            }
+          />
+        </div>
+      )}
     </TPanel>
   );
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function Insight({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ color: TT.textDim, fontSize: 9, letterSpacing: '0.10em' }}>{label}</span>
+      <span style={{ color, fontSize: 13, fontWeight: 500 }}>{value}</span>
+      <span style={{ color: TT.textMute, fontSize: 9 }}>{sub}</span>
+    </div>
+  );
+}
+
+interface Insights {
+  topHour: { hour: number; tokens: number; pct: number };
+  topDay: { day: number; tokens: number; pct: number };
+  weekdayPct: number; // 0..100
+  workingHoursPct: number; // 09–18 share, 0..100
+  lateNightPct: number; // 22–04 share, 0..100
+}
+
+function deriveInsights(grid: number[][]): Insights | null {
+  let total = 0;
+  for (const row of grid) for (const v of row) total += v;
+  if (total <= 0) return null;
+
+  // Sum across all weekdays for each hour-of-day, and vice versa.
+  const hourTotals = Array.from({ length: 24 }, (_, h) =>
+    grid.reduce((a, row) => a + (row[h] ?? 0), 0),
+  );
+  const dayTotals = grid.map((row) => row.reduce((a, v) => a + v, 0));
+
+  const topHourIdx = hourTotals.reduce(
+    (best, v, i) => (v > hourTotals[best]! ? i : best),
+    0,
+  );
+  const topDayIdx = dayTotals.reduce(
+    (best, v, i) => (v > dayTotals[best]! ? i : best),
+    0,
+  );
+
+  // grid index 0 = SUN, 1=MON, ..., 6=SAT. Weekdays are MON–FRI (1..5).
+  let weekday = 0;
+  for (let d = 1; d <= 5; d++) weekday += dayTotals[d] ?? 0;
+
+  let working = 0;
+  for (let h = 9; h < 18; h++) working += hourTotals[h] ?? 0;
+
+  let lateNight = 0;
+  for (const h of [22, 23, 0, 1, 2, 3]) lateNight += hourTotals[h] ?? 0;
+
+  return {
+    topHour: {
+      hour: topHourIdx,
+      tokens: hourTotals[topHourIdx] ?? 0,
+      pct: ((hourTotals[topHourIdx] ?? 0) / total) * 100,
+    },
+    topDay: {
+      day: topDayIdx,
+      tokens: dayTotals[topDayIdx] ?? 0,
+      pct: ((dayTotals[topDayIdx] ?? 0) / total) * 100,
+    },
+    weekdayPct: (weekday / total) * 100,
+    workingHoursPct: (working / total) * 100,
+    lateNightPct: (lateNight / total) * 100,
+  };
 }
