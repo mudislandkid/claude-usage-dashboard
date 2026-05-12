@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { TCell } from '@/components/terminal/Cell';
@@ -7,18 +6,13 @@ import { useWindow } from '@/hooks/useWindow';
 import { formatTokens, formatDuration } from '@/lib/format';
 
 export function FiveHourGaugePanel() {
-  const { data, dataUpdatedAt } = useWindow();
-  const interpolated = useInterpolatedWindow(data, dataUpdatedAt);
+  const { data } = useWindow();
   if (!data) return <TPanel title="5H_ROLLING_WINDOW">Loading…</TPanel>;
 
   const limit = data.effectiveLimitTokens;
   const burn = data.burnRatePerMin;
-  // The server's `percentUsed` is authoritative when the bridge is active —
-  // it's Anthropic's own reported %, which Claude Code re-pipes live as the
-  // session runs. We anchor to that and only ADD on a between-polls forecast
-  // (burn × Δt) so the gauge ticks smoothly without overriding the truth.
-  const used = Math.min(limit, interpolated.used);
-  const pct = Math.min(100, interpolated.pct);
+  const used = data.totalChargeable;
+  const pct = data.percentUsed * 100;
   const headroom = Math.max(0, limit - used);
   const cacheReads = data.cacheReadTokens;
 
@@ -239,59 +233,3 @@ export function FiveHourGaugePanel() {
   );
 }
 
-interface WindowSnapshot {
-  totalChargeable: number;
-  burnRatePerMin: number;
-  windowActive: boolean;
-  effectiveLimitTokens: number;
-  percentUsed: number;
-}
-
-/**
- * Between the server's 10s window polls, project both `used` and `pct`
- * forward at the current burn rate so the gauge ticks every second instead
- * of stepping once per refetch. The server is authoritative on every
- * refetch — `percentUsed` is anchored from there (which already reflects
- * the Anthropic bridge value when the bridge is active) and we only add
- * the elapsed-time forecast on top.
- */
-function useInterpolatedWindow(
-  data: WindowSnapshot | undefined,
-  dataUpdatedAt: number,
-): { used: number; pct: number } {
-  const [used, setUsed] = useState<number>(data?.totalChargeable ?? 0);
-  const [pct, setPct] = useState<number>((data?.percentUsed ?? 0) * 100);
-  const lastAnchorMs = useRef<number>(dataUpdatedAt);
-  const anchorUsed = useRef<number>(data?.totalChargeable ?? 0);
-  const anchorPct = useRef<number>((data?.percentUsed ?? 0) * 100);
-  const burnPerMin = useRef<number>(data?.burnRatePerMin ?? 0);
-  const active = useRef<boolean>(data?.windowActive ?? false);
-  const cap = useRef<number>(data?.effectiveLimitTokens ?? 0);
-
-  // Re-anchor whenever the server returns a fresh snapshot.
-  useEffect(() => {
-    if (!data) return;
-    lastAnchorMs.current = dataUpdatedAt;
-    anchorUsed.current = data.totalChargeable;
-    anchorPct.current = data.percentUsed * 100;
-    burnPerMin.current = data.burnRatePerMin;
-    active.current = data.windowActive;
-    cap.current = data.effectiveLimitTokens;
-    setUsed(data.totalChargeable);
-    setPct(data.percentUsed * 100);
-  }, [data, dataUpdatedAt]);
-
-  // 1Hz tick — extrapolate used + pct forward at burn rate.
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (!active.current || burnPerMin.current <= 0 || cap.current <= 0) return;
-      const elapsedMin = (Date.now() - lastAnchorMs.current) / 60_000;
-      const deltaTok = burnPerMin.current * elapsedMin;
-      setUsed(Math.min(cap.current, anchorUsed.current + deltaTok));
-      setPct(Math.min(100, anchorPct.current + (deltaTok / cap.current) * 100));
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  return { used, pct };
-}
