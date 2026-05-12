@@ -37,8 +37,23 @@ export function FiveHourGaugePanel() {
     const willHit = resetMs !== null && minsToLimitAvg < resetMs;
     const hitAt = new Date(Date.now() + minsToLimitAvg * 60_000);
     const leadMin = resetMs !== null ? resetMs - minsToLimitAvg : null;
-    return { avgBurn, minsToLimitAvg, willHit, hitAt, leadMin };
+    // Projected % at the moment of reset, at window-average burn rate.
+    const projectedPct =
+      resetMs !== null && limit > 0
+        ? Math.min(200, ((used + avgBurn * resetMs) / limit) * 100)
+        : null;
+    return { avgBurn, minsToLimitAvg, willHit, hitAt, leadMin, projectedPct };
   })();
+  const projPct = projection?.projectedPct ?? null;
+  // Same red/amber/green thresholds as the rest of the gauge.
+  const projColor =
+    projPct === null
+      ? TT.green
+      : projPct >= 100
+        ? TT.red
+        : projPct >= 80
+          ? TT.amber
+          : TT.green;
 
   return (
     <TPanel
@@ -61,6 +76,7 @@ export function FiveHourGaugePanel() {
         <div
           style={{
             position: 'relative',
+            display: 'flex',
             height: 22,
             background: 'rgba(120,200,140,0.05)',
             border: `1px solid ${TT.border}`,
@@ -68,12 +84,22 @@ export function FiveHourGaugePanel() {
         >
           <div
             style={{
-              width: `${pct}%`,
+              width: `${Math.min(100, pct)}%`,
               height: '100%',
               background: `repeating-linear-gradient(90deg, ${TT.green}, ${TT.green} 5px, rgba(74,222,128,0.6) 5px, rgba(74,222,128,0.6) 7px)`,
               transition: 'width 400ms ease',
             }}
           />
+          {projPct !== null && projPct > pct && (
+            <div
+              style={{
+                width: `${Math.max(0, Math.min(100, projPct) - Math.min(100, pct))}%`,
+                height: '100%',
+                background: `repeating-linear-gradient(45deg, ${projColor}55, ${projColor}55 3px, transparent 3px, transparent 6px)`,
+                transition: 'width 400ms ease',
+              }}
+            />
+          )}
           {[25, 50, 75].map((p) => (
             <div
               key={p}
@@ -127,6 +153,32 @@ export function FiveHourGaugePanel() {
           <span>75</span>
           <span style={{ color: TT.red }}>100% CAP</span>
         </div>
+        {projPct !== null && (
+          <div
+            style={{
+              fontFamily: TT_MONO,
+              fontSize: 10,
+              color: TT.textMute,
+              marginTop: 6,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                width: 14,
+                height: 8,
+                background: `repeating-linear-gradient(45deg, ${projColor}55, ${projColor}55 2px, transparent 2px, transparent 4px)`,
+                display: 'inline-block',
+                border: `1px solid ${projColor}66`,
+              }}
+            />
+            projected{' '}
+            <span style={{ color: projColor }}>{projPct.toFixed(0)}%</span> by reset at
+            window-average burn
+          </div>
+        )}
       </div>
       <div
         style={{
