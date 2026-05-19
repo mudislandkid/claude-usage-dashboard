@@ -7,6 +7,7 @@ import { PLAN_PRESETS, CUSTOM_PLAN, detectPlan } from '@/lib/plans';
 import { formatTokens } from '@/lib/format';
 import { StatuslineBridgePanel } from '@/components/term-widgets/SettingsBridge';
 import { OauthPanel } from '@/components/term-widgets/SettingsOauth';
+import { SettingsAliasesPanel } from '@/components/term-widgets/SettingsAliases';
 
 export function Settings() {
   const { data } = useSettings();
@@ -71,6 +72,7 @@ export function Settings() {
     >
       <StatuslineBridgePanel />
       <OauthPanel />
+      <SettingsAliasesPanel />
 
       <TPanel title="5H_WINDOW_LIMIT" sub="// chargeable token cap">
         <p

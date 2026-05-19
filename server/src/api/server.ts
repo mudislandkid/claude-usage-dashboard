@@ -14,6 +14,7 @@ import { settingsRoutes } from './routes/settings.js';
 import { scanRoute } from './routes/scan.js';
 import { insightsRoutes } from './routes/insights.js';
 import { costBreakdownRoute } from './routes/costBreakdown.js';
+import { pathAliasesRoutes } from './routes/pathAliases.js';
 
 export interface ApiContext {
   db: DB;
@@ -36,5 +37,6 @@ export async function buildApi(ctx: ApiContext): Promise<FastifyInstance> {
   app.register(scanRoute, { prefix: '/api', ctx });
   app.register(insightsRoutes, { prefix: '/api', ctx });
   app.register(costBreakdownRoute, { prefix: '/api', ctx });
+  app.register(pathAliasesRoutes, { prefix: '/api', ctx });
   return app;
 }

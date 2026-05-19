@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS path_aliases (
+  from_prefix TEXT PRIMARY KEY,
+  to_prefix   TEXT NOT NULL,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_aliases_to ON path_aliases(to_prefix);
 `;
 
 /**

@@ -17,6 +17,11 @@ import {
 import { toolUseForProject } from '../../db/queries/toolCalls.js';
 import { gitStats } from '../../git/gitStats.js';
 import { getSettings } from '../../db/queries/settings.js';
+import {
+  distinctProjectPaths,
+  listAliases,
+} from '../../db/queries/pathAliases.js';
+import { canonicalizePath, expandCanonical } from '../../lib/pathAliases.js';
 
 const ParamsSchema = z.object({ id: z.string().min(1) });
 const Q = z.object({ days: z.coerce.number().min(0.1).max(365).default(30) });
@@ -33,9 +38,17 @@ export async function projectsRoutes(
   app.get('/projects/:id', async (req) => {
     const { id } = ParamsSchema.parse(req.params);
     const { days } = Q.parse(req.query);
-    const path = decodeURIComponent(id);
+    const rawInput = decodeURIComponent(id);
     const db = opts.ctx.db;
-    const header = projectHeader(db, path);
+
+    // Resolve the input through aliases so old (now-aliased-away) links still work.
+    const aliases = listAliases(db);
+    const canonical = canonicalizePath(rawInput, aliases);
+
+    // Expand canonical to every raw path actually present in the DB.
+    const paths = expandCanonical(canonical, distinctProjectPaths(db), aliases);
+
+    const header = projectHeader(db, canonical, paths);
     if (!header) {
       return {
         header: null,
@@ -49,24 +62,25 @@ export async function projectsRoutes(
         entrypoints: [],
         modelMixOverTime: [],
         cacheOverTime: [],
-        sessions: projectDetail(db, path).sessions,
+        sessions: projectDetail(db, paths).sessions,
       };
     }
     return {
       header,
       days,
-      cache: projectCacheStats(db, path, days),
-      modelMix: projectModelMix(db, path, days),
-      activity: projectActivity(db, path, days),
-      subagent: projectSubagentStats(db, path, days),
-      cacheTtl: projectCacheTtl(db, path, days),
-      topSessions: projectTopSessions(db, path, 10),
-      entrypoints: projectEntrypoints(db, path),
-      modelMixOverTime: projectModelMixOverTime(db, path, days),
-      cacheOverTime: projectCacheOverTime(db, path, days),
-      toolUse: toolUseForProject(db, path, days),
-      git: gitStats(path, days),
-      sessions: projectDetail(db, path).sessions,
+      cache: projectCacheStats(db, paths, days),
+      modelMix: projectModelMix(db, paths, days),
+      activity: projectActivity(db, paths, days),
+      subagent: projectSubagentStats(db, paths, days),
+      cacheTtl: projectCacheTtl(db, paths, days),
+      topSessions: projectTopSessions(db, paths, 10),
+      entrypoints: projectEntrypoints(db, paths),
+      modelMixOverTime: projectModelMixOverTime(db, paths, days),
+      cacheOverTime: projectCacheOverTime(db, paths, days),
+      toolUse: toolUseForProject(db, paths, days),
+      // gitStats reads from the filesystem — only meaningful for the canonical path itself.
+      git: gitStats(canonical, days),
+      sessions: projectDetail(db, paths).sessions,
     };
   });
 }

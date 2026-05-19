@@ -47,6 +47,7 @@ export interface CostBreakdown {
   byProject: ProjectCost[];
 }
 
+/** Pass `days = 0` for an all-time breakdown (no date filter). */
 export function useCostBreakdown(days = 30) {
   return useQuery({
     queryKey: ['costBreakdown', days],

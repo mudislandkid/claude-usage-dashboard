@@ -5,78 +5,108 @@ import { TPanel } from '@/components/terminal/Panel';
 import { TBadge } from '@/components/terminal/Badge';
 import { TTable, type TColumn } from '@/components/terminal/Table';
 import { SegBtn } from '@/components/terminal/SegBtn';
-import { useProjects, type ProjectRow } from '@/hooks/useProjects';
+import { useProjects } from '@/hooks/useProjects';
 import { useCostBreakdown } from '@/hooks/useCostBreakdown';
 import { formatTokens, formatRelative } from '@/lib/format';
 import { fmtUSDCompact } from '@/lib/pricing';
+import {
+  buildProjectTree,
+  filterByStatus,
+  filterTree,
+  flattenTree,
+  sortTree,
+  type FlatRow,
+  type SortKey,
+} from '@/lib/projectTree';
 
 const STATUS = ['all', 'active', 'idle'] as const;
 const SORT = ['recent', 'tokens', 'sessions'] as const;
 
 type StatusOpt = (typeof STATUS)[number];
-type SortOpt = (typeof SORT)[number];
-
-interface Row extends ProjectRow {
-  idx: string;
-  apiCost: number;
-}
 
 export function Projects() {
   const [filter, setFilter] = useState('');
   const [status, setStatus] = useState<StatusOpt>('all');
-  const [sort, setSort] = useState<SortOpt>('recent');
+  const [sort, setSort] = useState<SortKey>('recent');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { data } = useProjects();
-  const { data: cost } = useCostBreakdown(30);
+  const { data: cost } = useCostBreakdown(0); // 0 = all-time
   const nav = useNavigate();
 
   const costByPath = useMemo(() => {
     const m = new Map<string, number>();
-    for (const p of cost?.byProject ?? []) {
-      m.set(p.projectPath, p.totalUsd);
-    }
+    for (const p of cost?.byProject ?? []) m.set(p.projectPath, p.totalUsd);
     return m;
   }, [cost]);
 
-  const filtered = useMemo<Row[]>(() => {
+  const rows = useMemo<FlatRow[]>(() => {
     if (!data) return [];
-    let r = data.projects;
-    if (status !== 'all') r = r.filter((p) => (status === 'active' ? p.isActive : !p.isActive));
-    if (filter) {
+    let tree = buildProjectTree(data.projects, costByPath);
+    tree = sortTree(tree, sort);
+    tree = filterByStatus(tree, status);
+
+    let forceExpand: Set<string> | null = null;
+    if (filter.trim()) {
       const q = filter.toLowerCase();
-      r = r.filter(
-        (p) =>
-          p.projectName.toLowerCase().includes(q) ||
-          p.projectPath.toLowerCase().includes(q),
+      const res = filterTree(
+        tree,
+        (n) =>
+          n.project.projectName.toLowerCase().includes(q) ||
+          n.project.projectPath.toLowerCase().includes(q),
       );
+      tree = res.tree;
+      forceExpand = res.expandPaths;
     }
-    if (sort === 'tokens') r = [...r].sort((a, b) => b.totalTokens - a.totalTokens);
-    if (sort === 'sessions') r = [...r].sort((a, b) => b.sessionCount - a.sessionCount);
-    if (sort === 'recent')
-      r = [...r].sort(
-        (a, b) => new Date(b.lastTouched).getTime() - new Date(a.lastTouched).getTime(),
-      );
-    return r.map((p, i) => ({
-      ...p,
-      idx: String(i + 1).padStart(2, '0'),
-      apiCost: costByPath.get(p.projectPath) ?? 0,
-    }));
-  }, [data, filter, status, sort, costByPath]);
 
-  const totalTokens = filtered.reduce((a, b) => a + b.totalTokens, 0);
+    const effectiveExpanded = forceExpand
+      ? new Set([...expanded, ...forceExpand])
+      : expanded;
+    return flattenTree(tree, effectiveExpanded);
+  }, [data, costByPath, sort, status, filter, expanded]);
 
-  const columns: TColumn<Row>[] = [
-    { key: 'idx', label: '#', w: '34px', render: (r) => <span style={{ color: TT.textDim }}>{r.idx}</span> },
+  const totalTokens = rows.reduce(
+    (a, r) => (r.depth === 0 ? a + r.node.rollup.totalTokens : a),
+    0,
+  );
+
+  const visibleNodeCount = rows.length;
+  const totalProjectCount = data?.projects.length ?? 0;
+
+  const toggle = (path: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+
+  const columns: TColumn<FlatRow>[] = [
+    {
+      key: 'idx',
+      label: '#',
+      w: '34px',
+      render: (r) => {
+        const num = rows.indexOf(r) + 1;
+        return (
+          <span style={{ color: TT.textDim }}>
+            {String(num).padStart(2, '0')}
+          </span>
+        );
+      },
+    },
     {
       key: 'name',
       label: 'PROJECT',
-      w: '260px',
-      render: (r) => <span style={{ color: TT.text }}>{r.projectName}</span>,
+      w: '300px',
+      render: (r) => <NameCell row={r} onToggle={toggle} />,
     },
     {
       key: 'path',
       label: 'PATH',
       render: (r) => (
-        <span style={{ color: TT.textMute, fontSize: 10 }}>{r.projectPath}</span>
+        <span style={{ color: TT.textMute, fontSize: 10 }}>
+          {r.node.project.projectPath}
+        </span>
       ),
     },
     {
@@ -84,32 +114,57 @@ export function Projects() {
       label: 'LAST',
       w: '90px',
       align: 'right',
-      render: (r) => <span style={{ color: TT.textMute }}>{formatRelative(r.lastTouched)}</span>,
+      render: (r) => (
+        <span style={{ color: TT.textMute }}>
+          {formatRelative(r.node.rollup.lastTouched)}
+        </span>
+      ),
     },
     {
       key: 'sessions',
       label: 'SESS',
       w: '60px',
       align: 'right',
-      render: (r) => <span style={{ color: TT.blue }}>{r.sessionCount}</span>,
+      render: (r) => (
+        <RollupNumber
+          own={r.node.project.sessionCount}
+          total={r.node.rollup.sessionCount}
+          color={TT.blue}
+          hasChildren={r.hasChildren}
+        />
+      ),
     },
     {
       key: 'tokens',
       label: 'TOKENS',
       w: '90px',
       align: 'right',
-      render: (r) => <span style={{ color: TT.green }}>{formatTokens(r.totalTokens)}</span>,
+      render: (r) => (
+        <RollupNumber
+          own={r.node.project.totalTokens}
+          total={r.node.rollup.totalTokens}
+          color={TT.green}
+          hasChildren={r.hasChildren}
+          format={formatTokens}
+        />
+      ),
     },
     {
       key: 'cost',
       label: 'API $',
       w: '90px',
       align: 'right',
-      render: (r) => (
-        <span style={{ color: r.apiCost > 100 ? TT.amber : TT.textMute }}>
-          {r.apiCost < 0.01 ? '<$0.01' : fmtUSDCompact(r.apiCost)}
-        </span>
-      ),
+      render: (r) => {
+        const total = r.node.rollup.apiCost;
+        const own = r.node.apiCost;
+        const showRollup = r.hasChildren && total !== own;
+        const value = showRollup ? total : own;
+        return (
+          <span style={{ color: value > 100 ? TT.amber : TT.textMute }}>
+            {value < 0.01 ? '<$0.01' : fmtUSDCompact(value)}
+          </span>
+        );
+      },
     },
     {
       key: 'status',
@@ -117,8 +172,8 @@ export function Projects() {
       w: '70px',
       align: 'right',
       render: (r) => (
-        <TBadge color={r.isActive ? TT.green : TT.textMute}>
-          {r.isActive ? 'active' : 'idle'}
+        <TBadge color={r.node.rollup.isActive ? TT.green : TT.textMute}>
+          {r.node.rollup.isActive ? 'active' : 'idle'}
         </TBadge>
       ),
     },
@@ -131,8 +186,8 @@ export function Projects() {
     >
       <TPanel
         title="PROJECTS"
-        sub={`// ${filtered.length} of ${data?.projects.length ?? 0}`}
-        action={`${formatTokens(totalTokens)} TOTAL`}
+        sub={`// ${visibleNodeCount} of ${totalProjectCount}`}
+        action={`${formatTokens(totalTokens)} TOTAL · ALL TIME`}
       >
         <div
           style={{
@@ -179,13 +234,97 @@ export function Projects() {
           <SegBtn options={SORT} value={sort} onChange={setSort} accent={TT.blue} />
         </div>
 
-        <TTable<Row>
+        <TTable<FlatRow>
           columns={columns}
-          rows={filtered}
-          onRowClick={(r) => nav(`/projects/${encodeURIComponent(r.projectPath)}`)}
+          rows={rows}
+          onRowClick={(r) =>
+            nav(`/projects/${encodeURIComponent(r.node.project.projectPath)}`)
+          }
           empty="No matching projects."
         />
       </TPanel>
     </div>
   );
 }
+
+interface NameCellProps {
+  row: FlatRow;
+  onToggle: (path: string) => void;
+}
+
+function NameCell({ row, onToggle }: NameCellProps) {
+  const indent = row.depth * 14;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        paddingLeft: indent,
+        color: TT.text,
+        minWidth: 0,
+      }}
+    >
+      {row.hasChildren ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(row.node.project.projectPath);
+          }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: TT.textDim,
+            cursor: 'pointer',
+            padding: 0,
+            width: 12,
+            fontFamily: TT_MONO,
+            fontSize: 10,
+            lineHeight: 1,
+          }}
+          aria-label={row.isExpanded ? 'Collapse' : 'Expand'}
+        >
+          {row.isExpanded ? '▾' : '▸'}
+        </button>
+      ) : (
+        <span style={{ width: 12, color: TT.textDim, fontSize: 10 }}>
+          {row.depth > 0 ? '·' : ''}
+        </span>
+      )}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {row.node.project.projectName}
+      </span>
+      {row.hasChildren && (
+        <span style={{ color: TT.textDim, fontSize: 10 }}>
+          +{row.node.rollup.descendantCount}
+        </span>
+      )}
+    </span>
+  );
+}
+
+interface RollupNumberProps {
+  own: number;
+  total: number;
+  color: string;
+  hasChildren: boolean;
+  format?: (n: number) => string;
+}
+
+function RollupNumber({
+  own,
+  total,
+  color,
+  hasChildren,
+  format,
+}: RollupNumberProps) {
+  const fmt = format ?? ((n: number) => String(n));
+  const showRollup = hasChildren && total !== own;
+  return (
+    <span style={{ color }}>
+      {fmt(showRollup ? total : own)}
+    </span>
+  );
+}
+

@@ -25,17 +25,23 @@ export function toolUseGlobal(db: DB, days: number): ToolUseRow[] {
   return rows.map((r) => ({ toolName: r.name, count: r.n }));
 }
 
-export function toolUseForProject(db: DB, projectPath: string, days: number): ToolUseRow[] {
+export function toolUseForProject(
+  db: DB,
+  projectPaths: string[],
+  days: number,
+): ToolUseRow[] {
+  if (projectPaths.length === 0) return [];
   const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+  const placeholders = projectPaths.map(() => '?').join(',');
   const rows = db
     .prepare(
       `SELECT tc.tool_name AS name, COUNT(*) AS n
        FROM tool_calls tc
        JOIN sessions s ON s.session_id = tc.session_id
-       WHERE s.project_path = ? AND tc.ts >= ?
+       WHERE s.project_path IN (${placeholders}) AND tc.ts >= ?
        GROUP BY tc.tool_name ORDER BY n DESC`,
     )
-    .all(projectPath, cutoff) as Array<{ name: string; n: number }>;
+    .all(...projectPaths, cutoff) as Array<{ name: string; n: number }>;
   return rows.map((r) => ({ toolName: r.name, count: r.n }));
 }
 

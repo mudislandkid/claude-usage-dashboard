@@ -1,5 +1,7 @@
 import type { DB } from '../connection.js';
 import { classifyModel, type ModelFamily } from './modelMix.js';
+import { listAliases } from './pathAliases.js';
+import { canonicalizePath } from '../../lib/pathAliases.js';
 import {
   addBuckets,
   dollarize,
@@ -45,10 +47,8 @@ interface Row {
 }
 
 export function costBreakdown(db: DB, days: number): CostBreakdown {
-  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
-  const rows = db
-    .prepare(
-      `SELECT
+  const allTime = days <= 0;
+  const baseSql = `SELECT
          s.project_path,
          MAX(s.project_name)                              AS project_name,
          t.model                                          AS model,
@@ -58,11 +58,32 @@ export function costBreakdown(db: DB, days: number): CostBreakdown {
          COALESCE(SUM(t.cache_creation_5m), 0)            AS cache_creation_5m,
          COALESCE(SUM(t.cache_creation_1h), 0)            AS cache_creation_1h
        FROM sessions s
-       JOIN turns t ON t.session_id = s.session_id
-       WHERE t.ts >= ?
-       GROUP BY s.project_path, t.model`,
-    )
-    .all(cutoff) as Row[];
+       JOIN turns t ON t.session_id = s.session_id`;
+  const rows = allTime
+    ? (db
+        .prepare(`${baseSql} GROUP BY s.project_path, t.model`)
+        .all() as Row[])
+    : (db
+        .prepare(`${baseSql} WHERE t.ts >= ? GROUP BY s.project_path, t.model`)
+        .all(new Date(Date.now() - days * 86_400_000).toISOString()) as Row[]);
+
+  const aliases = listAliases(db);
+  // Rewrite every row's project_path to its canonical form; the rest of the
+  // function aggregates by project_path, so merging happens naturally.
+  const canonicalNames = new Map<string, string>();
+  for (const r of rows) {
+    const canonical = canonicalizePath(r.project_path, aliases);
+    // Prefer the canonical-path's own project_name when its row is present.
+    if (r.project_path === canonical) canonicalNames.set(canonical, r.project_name);
+    else if (!canonicalNames.has(canonical)) canonicalNames.set(canonical, r.project_name);
+    r.project_path = canonical;
+    r.project_name = canonicalNames.get(canonical) ?? r.project_name;
+  }
+  // Second pass: stamp the resolved name onto every row so downstream
+  // aggregation picks the canonical name even when rows were seen out of order.
+  for (const r of rows) {
+    r.project_name = canonicalNames.get(r.project_path) ?? r.project_name;
+  }
 
   const projectMap = new Map<string, ProjectCost>();
   const globalByModel: Record<ModelFamily, ModelBucket> = {

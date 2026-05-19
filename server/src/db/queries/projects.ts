@@ -1,4 +1,6 @@
 import type { DB } from '../connection.js';
+import { canonicalizePath } from '../../lib/pathAliases.js';
+import { listAliases } from './pathAliases.js';
 
 export interface ProjectRow {
   projectPath: string;
@@ -30,27 +32,59 @@ export function listProjects(db: DB, activeWithinDays = 14): ProjectRow[] {
      ORDER BY last_touched DESC`,
   ).all() as Array<Record<string, unknown>>;
 
-  return rows.map((r) => ({
-    projectPath: r.project_path as string,
-    projectName: r.project_name as string,
-    sessionCount: r.session_count as number,
-    totalTokens:
-      (r.input_tokens as number) +
-      (r.output_tokens as number) +
-      (r.cache_read_tokens as number) +
-      (r.cache_creation_tokens as number),
-    lastTouched: r.last_touched as string,
-    cacheReadTokens: r.cache_read_tokens as number,
-    cacheCreationTokens: r.cache_creation_tokens as number,
-    inputTokens: r.input_tokens as number,
-    isActive: (r.last_touched as string) >= cutoff,
-  }));
+  const aliases = listAliases(db);
+  const merged = new Map<string, ProjectRow>();
+
+  for (const r of rows) {
+    const rawPath = r.project_path as string;
+    const canonical = canonicalizePath(rawPath, aliases);
+    const sessionCount = r.session_count as number;
+    const lastTouched = r.last_touched as string;
+    const inputTokens = r.input_tokens as number;
+    const outputTokens = r.output_tokens as number;
+    const cacheReadTokens = r.cache_read_tokens as number;
+    const cacheCreationTokens = r.cache_creation_tokens as number;
+    const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens;
+
+    const existing = merged.get(canonical);
+    if (!existing) {
+      merged.set(canonical, {
+        projectPath: canonical,
+        // Prefer the canonical's own project_name if its row is present;
+        // otherwise the first raw row we see wins (overwritten below when canonical shows up).
+        projectName: rawPath === canonical ? (r.project_name as string) : (r.project_name as string),
+        sessionCount,
+        totalTokens,
+        lastTouched,
+        cacheReadTokens,
+        cacheCreationTokens,
+        inputTokens,
+        isActive: lastTouched >= cutoff,
+      });
+    } else {
+      // Prefer the canonical-row's own name if/when it shows up.
+      if (rawPath === canonical) existing.projectName = r.project_name as string;
+      existing.sessionCount += sessionCount;
+      existing.totalTokens += totalTokens;
+      existing.cacheReadTokens += cacheReadTokens;
+      existing.cacheCreationTokens += cacheCreationTokens;
+      existing.inputTokens += inputTokens;
+      if (lastTouched > existing.lastTouched) existing.lastTouched = lastTouched;
+      if (lastTouched >= cutoff) existing.isActive = true;
+    }
+  }
+
+  return [...merged.values()].sort(
+    (a, b) => new Date(b.lastTouched).getTime() - new Date(a.lastTouched).getTime(),
+  );
 }
 
-export function projectDetail(db: DB, projectPath: string) {
+export function projectDetail(db: DB, projectPaths: string[]) {
+  if (projectPaths.length === 0) return { sessions: [] };
+  const placeholders = projectPaths.map(() => '?').join(',');
   const sessions = db.prepare(
     `SELECT session_id, primary_model, first_ts, last_ts, turn_count, is_subagent, parent_session_id
-     FROM sessions WHERE project_path = ? ORDER BY last_ts DESC LIMIT 200`,
-  ).all(projectPath);
+     FROM sessions WHERE project_path IN (${placeholders}) ORDER BY last_ts DESC LIMIT 200`,
+  ).all(...projectPaths);
   return { sessions };
 }
