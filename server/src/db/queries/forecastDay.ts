@@ -20,19 +20,28 @@ export function isFutureOrToday(date: string): boolean {
 
 /** ISO timestamp for local midnight at the start of the given date. */
 export function startOfLocalDayIso(date: string): string {
-  const [y, m, d] = date.split('-').map((s) => parseInt(s, 10));
+  const parts = date.split('-').map((s) => parseInt(s, 10));
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
   return new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
 }
 
 /** ISO timestamp for the start of the day AFTER the given date. */
 export function endOfLocalDayIso(date: string): string {
-  const [y, m, d] = date.split('-').map((s) => parseInt(s, 10));
+  const parts = date.split('-').map((s) => parseInt(s, 10));
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
   return new Date(y, m - 1, d + 1, 0, 0, 0, 0).toISOString();
 }
 
 /** Advance a YYYY-MM-DD date by N days. */
 export function addDaysIso(date: string, delta: number): string {
-  const [y, m, d] = date.split('-').map((s) => parseInt(s, 10));
+  const parts = date.split('-').map((s) => parseInt(s, 10));
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
   const dt = new Date(y, m - 1, d + delta);
   return toLocalDateString(dt);
 }
@@ -77,7 +86,10 @@ export function computeHistoricalForecast(
     map.set(`${r.weekday}-${r.hour}`, { chargeable: r.chargeable, samples: r.day_samples });
   }
 
-  const [y, m, d] = localDate.split('-').map((s) => parseInt(s, 10));
+  const parts = localDate.split('-').map((s) => parseInt(s, 10));
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
   const targetDay = new Date(y, m - 1, d);
   const targetWeekday = targetDay.getDay();
 
