@@ -4,6 +4,7 @@ import { getSettings } from '../../db/queries/settings.js';
 import { readStatuslineSidecar } from '../../lib/statusline.js';
 import { getOauthUsageFetcher } from '../../lib/oauthUsage.js';
 import { computeWeeklyProjection, type WeeklyProjection } from '../../lib/weeklyProjection.js';
+import { buildHourOfWeekProfile } from '../../lib/hourOfWeekProfile.js';
 
 interface WeeklyBar {
   percent: number;
@@ -16,12 +17,13 @@ function makeBar(
   percent: number,
   resetsAt: string | null,
   source: 'oauth' | 'statusline',
+  profile: Parameters<typeof computeWeeklyProjection>[3],
 ): WeeklyBar {
   return {
     percent,
     resetsAt,
     source,
-    projection: computeWeeklyProjection(percent, resetsAt),
+    projection: computeWeeklyProjection(percent, resetsAt, new Date(), profile),
   };
 }
 
@@ -34,6 +36,7 @@ export async function weeklyRoute(
     const statusline = readStatuslineSidecar();
     const fetcher = getOauthUsageFetcher();
     const oauth = await fetcher.getUsage({ enabled: settings.oauthUsageEnabled });
+    const profile = buildHourOfWeekProfile(opts.ctx.db);
 
     // Prefer OAuth values when available — they include the Sonnet split and
     // refresh independently of Claude Code prompts. Fall back to statusline's
@@ -44,6 +47,7 @@ export async function weeklyRoute(
         oauth.usage.sevenDayPercent,
         oauth.usage.sevenDayResetsAt,
         'oauth',
+        profile,
       );
     } else if (
       statusline?.sevenDayPercent !== null &&
@@ -53,6 +57,7 @@ export async function weeklyRoute(
         statusline.sevenDayPercent,
         statusline.sevenDayResetsAt,
         'statusline',
+        profile,
       );
     }
 
@@ -65,6 +70,7 @@ export async function weeklyRoute(
         oauth.usage.sevenDaySonnetPercent,
         oauth.usage.sevenDaySonnetResetsAt,
         'oauth',
+        profile,
       );
     }
 

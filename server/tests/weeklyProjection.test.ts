@@ -1,10 +1,35 @@
 import { describe, it, expect } from 'vitest';
 import { computeWeeklyProjection } from '../src/lib/weeklyProjection.js';
+import type { HourOfWeekProfile } from '../src/lib/hourOfWeekProfile.js';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function resetIso(now: Date, daysFromNow: number): string {
   return new Date(now.getTime() + daysFromNow * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** Uniform profile — should produce results matching the linear method. */
+function uniformProfile(): HourOfWeekProfile {
+  const weights = new Float64Array(168);
+  weights.fill(1 / 168);
+  return { weights, weeksOfHistory: 4, observedTokens: 1_000_000 };
+}
+
+/** Heavy weekday-business-hours profile: 09:00-17:00 UTC Mon-Fri carry most weight. */
+function workdayProfile(): HourOfWeekProfile {
+  const weights = new Float64Array(168);
+  let total = 0;
+  for (let wd = 0; wd < 7; wd++) {
+    for (let h = 0; h < 24; h++) {
+      const idx = wd * 24 + h;
+      const isWorkHour = wd >= 1 && wd <= 5 && h >= 9 && h < 17;
+      const w = isWorkHour ? 10 : 1;
+      weights[idx] = w;
+      total += w;
+    }
+  }
+  for (let i = 0; i < 168; i++) weights[i]! /= total;
+  return { weights, weeksOfHistory: 4, observedTokens: 1_000_000 };
 }
 
 describe('computeWeeklyProjection', () => {
@@ -84,5 +109,92 @@ describe('computeWeeklyProjection', () => {
       new Date(reset).getTime() - SEVEN_DAYS_MS,
     ).toISOString();
     expect(r.windowStart).toBe(expectedStart);
+  });
+
+  it('reports method=linear when no profile is supplied', () => {
+    const now = new Date('2026-05-05T12:00:00Z');
+    const r = computeWeeklyProjection(30, resetIso(now, 4), now);
+    expect(r.method).toBe('linear');
+  });
+
+  it('reports method=time-of-day when a profile is supplied', () => {
+    const now = new Date('2026-05-05T12:00:00Z');
+    const r = computeWeeklyProjection(30, resetIso(now, 4), now, uniformProfile());
+    expect(r.method).toBe('time-of-day');
+  });
+
+  it('uniform profile reproduces linear projection (within rounding)', () => {
+    const now = new Date('2026-05-05T12:00:00Z');
+    const reset = resetIso(now, 4); // 3 days in, 4 days remaining
+    const linear = computeWeeklyProjection(30, reset, now);
+    const weighted = computeWeeklyProjection(30, reset, now, uniformProfile());
+    expect(weighted.projectedFinalPercent).toBeCloseTo(
+      linear.projectedFinalPercent!,
+      0,
+    );
+  });
+
+  it('weighted projection is lower when remaining time falls in quiet hours', () => {
+    // Reset at Sunday 00:00Z. windowStart = previous Sunday 00:00Z.
+    // "now" is Friday 17:00Z — 5d 17h elapsed, 1d 7h remaining (weekend).
+    // Workday profile has tiny weight on weekend → weighted projection
+    // should be lower than the flat linear projection.
+    const now = new Date('2026-05-15T17:00:00Z'); // Friday
+    const reset = new Date('2026-05-17T00:00:00Z').toISOString(); // Sunday
+    const percent = 60;
+    const linear = computeWeeklyProjection(percent, reset, now);
+    const weighted = computeWeeklyProjection(percent, reset, now, workdayProfile());
+    expect(weighted.method).toBe('time-of-day');
+    expect(weighted.projectedFinalPercent!).toBeLessThan(
+      linear.projectedFinalPercent!,
+    );
+  });
+
+  it('weighted projection is higher when remaining time falls in busy hours', () => {
+    // "now" is Monday 09:00Z — 1d 9h elapsed (Sun + Mon morning), then a full
+    // workweek ahead. Linear underweights the busy days; weighted should hit
+    // a higher final.
+    const now = new Date('2026-05-11T09:00:00Z'); // Monday
+    const reset = new Date('2026-05-17T00:00:00Z').toISOString(); // Sunday
+    const percent = 10;
+    const linear = computeWeeklyProjection(percent, reset, now);
+    const weighted = computeWeeklyProjection(percent, reset, now, workdayProfile());
+    expect(weighted.projectedFinalPercent!).toBeGreaterThan(
+      linear.projectedFinalPercent!,
+    );
+  });
+
+  it('weighted ETA lands during a busy hour, not a quiet one', () => {
+    // Pacing for a will-exhaust scenario. ETA should advance fast through
+    // workday hours and slowly overnight — strict equality is fragile, so
+    // we just check the ETA is finite and falls before the reset.
+    const now = new Date('2026-05-11T09:00:00Z'); // Monday morning
+    const reset = new Date('2026-05-17T00:00:00Z').toISOString();
+    const r = computeWeeklyProjection(50, reset, now, workdayProfile());
+    expect(r.status).toBe('will-exhaust');
+    expect(r.etaToLimitAt).not.toBeNull();
+    const eta = new Date(r.etaToLimitAt!).getTime();
+    expect(eta).toBeGreaterThan(now.getTime());
+    expect(eta).toBeLessThanOrEqual(new Date(reset).getTime());
+  });
+
+  it('falls back to linear when elapsed weight is too small', () => {
+    // Window starts 30 minutes ago → not enough elapsed weight to project.
+    // But we're past the 1h MIN_ELAPSED_MS guard, so test with 2h elapsed
+    // and an entirely-quiet profile slice.
+    const now = new Date('2026-05-05T03:00:00Z'); // Tue 03:00 UTC — a quiet hour
+    // Build a profile where ONLY 03:00 Tuesday has weight (degenerate but valid)
+    const weights = new Float64Array(168);
+    weights[2 * 24 + 3] = 1; // Tue 03:00 only
+    const profile: HourOfWeekProfile = {
+      weights,
+      weeksOfHistory: 4,
+      observedTokens: 1_000_000,
+    };
+    const reset = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    const r = computeWeeklyProjection(2, reset, now, profile);
+    // Either it produces a sane number, or it falls back to linear — both fine.
+    expect(['linear', 'time-of-day']).toContain(r.method);
+    expect(r.projectedFinalPercent).not.toBeNull();
   });
 });

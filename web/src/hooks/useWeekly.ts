@@ -8,6 +8,8 @@ export type ProjectionStatus =
   | 'ok'
   | 'insufficient-data';
 
+export type ProjectionMethod = 'time-of-day' | 'linear';
+
 export interface WeeklyProjection {
   windowStart: string | null;
   elapsedHours: number | null;
@@ -17,6 +19,7 @@ export interface WeeklyProjection {
   etaToLimitHours: number | null;
   etaToLimitAt: string | null;
   status: ProjectionStatus;
+  method: ProjectionMethod;
 }
 
 export interface WeeklyBar {

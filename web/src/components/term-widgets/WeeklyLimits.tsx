@@ -114,6 +114,16 @@ function WeeklyRow({ label, bar, color }: RowProps) {
         <span style={{ color: TT.textMute, fontSize: 11 }}>
           used <span style={{ color: TT.green }}>{used.toFixed(0)}%</span> · proj{' '}
           <span style={{ color: projColor }}>{proj.toFixed(0)}%</span>
+          <span
+            style={{ color: TT.textDim, fontSize: 9, marginLeft: 6 }}
+            title={
+              bar.projection.method === 'time-of-day'
+                ? 'Projection weights remaining time by your typical hour-of-week usage shape.'
+                : 'Flat linear pace — not enough history yet for a time-of-day model.'
+            }
+          >
+            ({bar.projection.method === 'time-of-day' ? 'time-of-day' : 'linear'})
+          </span>
         </span>
       </div>
       <div
