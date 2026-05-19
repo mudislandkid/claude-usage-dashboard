@@ -18,6 +18,11 @@ import {
   versionAdoption,
 } from '../../db/queries/heavy.js';
 import { cacheTtlEfficiency } from '../../db/queries/cacheTtl.js';
+import {
+  forecastForDay,
+  todayLocalDate,
+  addDaysIso,
+} from '../../db/queries/forecastDay.js';
 
 const Q = z.object({ days: z.coerce.number().min(0.1).max(365).default(30) });
 
@@ -40,6 +45,26 @@ export async function insightsRoutes(
   app.get('/forecast', async (req) => {
     const { days } = Q.parse(req.query);
     return forecastNext24h(opts.ctx.db, days);
+  });
+
+  const DayQ = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    days: z.coerce.number().min(1).max(365).default(30),
+  });
+
+  app.get('/forecast/day', async (req, reply) => {
+    const parsed = DayQ.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid query parameters' });
+    }
+    const today = todayLocalDate();
+    const date = parsed.data.date ?? today;
+    const minDate = addDaysIso(today, -7);
+    const maxDate = addDaysIso(today, 1);
+    if (date < minDate || date > maxDate) {
+      return reply.code(400).send({ error: 'date out of range' });
+    }
+    return forecastForDay(opts.ctx.db, date, parsed.data.days);
   });
 
   app.get('/tool-use', async (req) => {

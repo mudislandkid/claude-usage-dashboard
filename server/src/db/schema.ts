@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS path_aliases (
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_aliases_to ON path_aliases(to_prefix);
+
+CREATE TABLE IF NOT EXISTS forecast_snapshots (
+  local_date       TEXT    PRIMARY KEY,
+  by_hour_json     TEXT    NOT NULL,
+  total_chargeable INTEGER NOT NULL,
+  computed_ts      TEXT    NOT NULL,
+  window_days      INTEGER NOT NULL DEFAULT 30
+);
 `;
 
 /**

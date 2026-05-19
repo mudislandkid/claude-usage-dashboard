@@ -5,7 +5,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useWindow } from '@/hooks/useWindow';
 import { DashboardTicker } from '@/components/term-widgets/Ticker';
 import { FiveHourGaugePanel } from '@/components/term-widgets/FiveHourGauge';
-import { ForecastPanel } from '@/components/term-widgets/ForecastChart';
+import { ForecastPanel } from '@/components/term-widgets/ForecastPanel';
 import { WeeklyLimitsPanel } from '@/components/term-widgets/WeeklyLimits';
 import { SubscriptionValuePanel } from '@/components/term-widgets/SubscriptionValue';
 import { CacheEffectivenessPanel } from '@/components/term-widgets/CacheEffectiveness';
