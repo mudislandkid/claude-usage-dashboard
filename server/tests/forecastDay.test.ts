@@ -9,6 +9,8 @@ import {
   computeHistoricalForecast,
   getOrCreateSnapshot,
   readSnapshot,
+  actualsForDay,
+  forecastForDay,
 } from '../src/db/queries/forecastDay.js';
 import { insertTurn } from '../src/db/queries/turns.js';
 import { upsertSession } from '../src/db/queries/sessions.js';
@@ -163,6 +165,86 @@ describe('forecast snapshots', () => {
     const out = getOrCreateSnapshot(db, date, 30);
     expect(out.byHour[5].expectedChargeable).toBe(7777);
     expect(out.totalForecast).toBe(7777 * 24);
+    db.close();
+  });
+});
+
+describe('actualsForDay', () => {
+  it('buckets chargeable tokens by local hour for the given date', () => {
+    const db = openDb(':memory:');
+    seedSession(db);
+    // Two turns at local hour 10 on 2026-05-19, locale-portable timestamps
+    insertTurn(db, {
+      sessionId: 's1', messageId: 'a', ts: new Date(2026, 4, 19, 10, 30, 0).toISOString(),
+      model: 'claude-opus-4-7',
+      inputTokens: 200, outputTokens: 0,
+      cacheReadTokens: 0, cacheCreationTokens: 100,
+      cacheCreation5m: 0, cacheCreation1h: 0,
+      serviceTier: null, isSubagent: false, iterationsCount: 1,
+    });
+    insertTurn(db, {
+      sessionId: 's1', messageId: 'b', ts: new Date(2026, 4, 19, 10, 45, 0).toISOString(),
+      model: 'claude-opus-4-7',
+      inputTokens: 50, outputTokens: 0,
+      cacheReadTokens: 0, cacheCreationTokens: 0,
+      cacheCreation5m: 0, cacheCreation1h: 0,
+      serviceTier: null, isSubagent: false, iterationsCount: 1,
+    });
+    const map = actualsForDay(db, '2026-05-19');
+    expect(map.get(10)).toBe(350); // 200 + 100 + 50
+    db.close();
+  });
+});
+
+describe('forecastForDay (full response)', () => {
+  it('marks past days as historical with full actuals', () => {
+    const db = openDb(':memory:');
+    seedSession(db);
+    const yesterday = addDaysIso(todayLocalDate(), -1);
+    const out = forecastForDay(db, yesterday, 30);
+    expect(out.source).toBe('historical');
+    expect(out.isPast).toBe(true);
+    expect(out.isToday).toBe(false);
+    expect(out.currentHour).toBeNull();
+    expect(out.byHour).toHaveLength(24);
+    // Past days: every hour has a non-null actual (zero or otherwise)
+    expect(out.byHour.every((b) => b.actualChargeable !== null)).toBe(true);
+    expect(out.totalActual).toBe(0);
+    db.close();
+  });
+
+  it('marks today as snapshot, with actuals up to current hour', () => {
+    const db = openDb(':memory:');
+    seedSession(db);
+    const out = forecastForDay(db, todayLocalDate(), 30);
+    expect(out.source).toBe('snapshot');
+    expect(out.isToday).toBe(true);
+    expect(out.isPast).toBe(false);
+    expect(out.currentHour).toBeGreaterThanOrEqual(0);
+    expect(out.currentHour).toBeLessThanOrEqual(23);
+    // Future hours are null, past/current hours are number
+    const ch = out.currentHour!;
+    for (let h = 0; h < 24; h++) {
+      if (h <= ch) {
+        expect(out.byHour[h].actualChargeable).not.toBeNull();
+      } else {
+        expect(out.byHour[h].actualChargeable).toBeNull();
+      }
+    }
+    db.close();
+  });
+
+  it('marks tomorrow as snapshot, with all actuals null', () => {
+    const db = openDb(':memory:');
+    seedSession(db);
+    const tomorrow = addDaysIso(todayLocalDate(), 1);
+    const out = forecastForDay(db, tomorrow, 30);
+    expect(out.source).toBe('snapshot');
+    expect(out.isToday).toBe(false);
+    expect(out.isPast).toBe(false);
+    expect(out.currentHour).toBeNull();
+    expect(out.byHour.every((b) => b.actualChargeable === null)).toBe(true);
+    expect(out.totalActual).toBeNull();
     db.close();
   });
 });

@@ -134,3 +134,84 @@ export function getOrCreateSnapshot(
   );
   return computed;
 }
+
+export function actualsForDay(db: DB, localDate: string): Map<number, number> {
+  const rows = db
+    .prepare(
+      `SELECT
+         CAST(strftime('%H', ts, 'localtime') AS INTEGER) AS hour,
+         COALESCE(SUM(input_tokens + cache_creation_tokens), 0) AS chargeable
+       FROM turns
+       WHERE date(ts, 'localtime') = ?
+       GROUP BY hour`,
+    )
+    .all(localDate) as Array<{ hour: number; chargeable: number }>;
+  const map = new Map<number, number>();
+  for (const r of rows) map.set(r.hour, r.chargeable);
+  return map;
+}
+
+export interface ForecastDayResponse {
+  date: string;
+  source: 'snapshot' | 'historical';
+  byHour: Array<{
+    hour: number;
+    expectedChargeable: number;
+    actualChargeable: number | null;
+  }>;
+  totalForecast: number;
+  totalActual: number | null;
+  isToday: boolean;
+  isPast: boolean;
+  currentHour: number | null;
+}
+
+export function forecastForDay(
+  db: DB,
+  localDate: string,
+  windowDays: number,
+): ForecastDayResponse {
+  const today = todayLocalDate();
+  const isToday = localDate === today;
+  const isPast = localDate < today;
+
+  const base = isFutureOrToday(localDate)
+    ? getOrCreateSnapshot(db, localDate, windowDays)
+    : computeHistoricalForecast(db, localDate, windowDays);
+  const source: 'snapshot' | 'historical' = isFutureOrToday(localDate)
+    ? 'snapshot'
+    : 'historical';
+
+  const currentHour = isToday ? new Date().getHours() : null;
+  const isFuture = !isPast && !isToday; // i.e., tomorrow or beyond
+
+  const actuals = isFuture ? new Map<number, number>() : actualsForDay(db, localDate);
+
+  let totalActual: number | null = isFuture ? null : 0;
+  const byHour = base.byHour.map((b) => {
+    let actualChargeable: number | null;
+    if (isFuture) {
+      actualChargeable = null;
+    } else if (isPast) {
+      actualChargeable = actuals.get(b.hour) ?? 0;
+    } else {
+      // today: actual for hours <= currentHour, null for future hours
+      actualChargeable = b.hour <= (currentHour ?? -1) ? (actuals.get(b.hour) ?? 0) : null;
+    }
+    if (actualChargeable !== null && totalActual !== null) {
+      totalActual += actualChargeable;
+    }
+    return { ...b, actualChargeable };
+  });
+
+  return {
+    date: localDate,
+    source,
+    byHour,
+    totalForecast: base.totalForecast,
+    totalActual,
+    isToday,
+    isPast,
+    currentHour,
+  };
+}
