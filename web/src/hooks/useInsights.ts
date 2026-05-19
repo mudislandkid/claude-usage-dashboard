@@ -80,5 +80,6 @@ export function useForecastDay(date: string, days = 30) {
     queryKey: ['forecastDay', date, days],
     queryFn: () => api<ForecastDayResponse>(`/forecast/day?date=${date}&days=${days}`),
     staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 }
