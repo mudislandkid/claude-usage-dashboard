@@ -59,3 +59,26 @@ export function useForecast(days = 30) {
     queryFn: () => api<ForecastResponse>(`/forecast?days=${days}`),
   });
 }
+
+export interface ForecastDayResponse {
+  date: string;
+  source: 'snapshot' | 'historical';
+  byHour: Array<{
+    hour: number;
+    expectedChargeable: number;
+    actualChargeable: number | null;
+  }>;
+  totalForecast: number;
+  totalActual: number | null;
+  isToday: boolean;
+  isPast: boolean;
+  currentHour: number | null;
+}
+
+export function useForecastDay(date: string, days = 30) {
+  return useQuery({
+    queryKey: ['forecastDay', date, days],
+    queryFn: () => api<ForecastDayResponse>(`/forecast/day?date=${date}&days=${days}`),
+    staleTime: 60_000,
+  });
+}

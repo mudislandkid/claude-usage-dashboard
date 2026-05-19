@@ -7,7 +7,10 @@ function toLocalDateString(d: Date): string {
 }
 
 function parseDate(date: string): Date {
-  const [y, m, d] = date.split('-').map((s) => parseInt(s, 10));
+  const parts = date.split('-').map((s) => parseInt(s, 10));
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
   return new Date(y, m - 1, d);
 }
 
