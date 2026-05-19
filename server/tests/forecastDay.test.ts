@@ -7,6 +7,8 @@ import {
   endOfLocalDayIso,
   addDaysIso,
   computeHistoricalForecast,
+  getOrCreateSnapshot,
+  readSnapshot,
 } from '../src/db/queries/forecastDay.js';
 import { insertTurn } from '../src/db/queries/turns.js';
 import { upsertSession } from '../src/db/queries/sessions.js';
@@ -116,6 +118,51 @@ describe('computeHistoricalForecast', () => {
     }
     const out = computeHistoricalForecast(db, '2026-05-19', 30);
     expect(out.byHour[10].expectedChargeable).toBe(1500);
+    db.close();
+  });
+});
+
+describe('forecast snapshots', () => {
+  it('creates a snapshot on first call and returns it on subsequent calls', () => {
+    const db = openDb(':memory:');
+    seedSession(db);
+    const first = getOrCreateSnapshot(db, todayLocalDate(), 30);
+    expect(first.byHour).toHaveLength(24);
+    expect(first.totalForecast).toBeGreaterThanOrEqual(0);
+
+    const cached = readSnapshot(db, todayLocalDate());
+    expect(cached).not.toBeNull();
+    expect(cached!.byHour).toEqual(first.byHour);
+    expect(cached!.totalForecast).toBe(first.totalForecast);
+    db.close();
+  });
+
+  it('readSnapshot returns null when no row exists', () => {
+    const db = openDb(':memory:');
+    expect(readSnapshot(db, '2026-01-01')).toBeNull();
+    db.close();
+  });
+
+  it('snapshot is not recomputed on second call', () => {
+    const db = openDb(':memory:');
+    seedSession(db);
+    const date = todayLocalDate();
+
+    // Manually insert a known snapshot
+    db.prepare(
+      `INSERT INTO forecast_snapshots (local_date, by_hour_json, total_chargeable, computed_ts, window_days)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(
+      date,
+      JSON.stringify(Array.from({ length: 24 }, (_, h) => ({ hour: h, expectedChargeable: 7777 }))),
+      7777 * 24,
+      new Date().toISOString(),
+      30,
+    );
+
+    const out = getOrCreateSnapshot(db, date, 30);
+    expect(out.byHour[5].expectedChargeable).toBe(7777);
+    expect(out.totalForecast).toBe(7777 * 24);
     db.close();
   });
 });

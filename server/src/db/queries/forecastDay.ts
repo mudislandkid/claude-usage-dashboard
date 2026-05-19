@@ -92,3 +92,45 @@ export function computeHistoricalForecast(
   }
   return { byHour, totalForecast: total };
 }
+
+export function readSnapshot(db: DB, localDate: string): ForecastDayPayload | null {
+  const row = db
+    .prepare(
+      `SELECT by_hour_json, total_chargeable
+       FROM forecast_snapshots
+       WHERE local_date = ?`,
+    )
+    .get(localDate) as { by_hour_json: string; total_chargeable: number } | undefined;
+  if (!row) return null;
+  return {
+    byHour: JSON.parse(row.by_hour_json) as Array<{ hour: number; expectedChargeable: number }>,
+    totalForecast: row.total_chargeable,
+  };
+}
+
+/**
+ * For today/future dates: return the stored snapshot, computing and
+ * persisting one if absent.
+ */
+export function getOrCreateSnapshot(
+  db: DB,
+  localDate: string,
+  windowDays: number,
+): ForecastDayPayload {
+  const cached = readSnapshot(db, localDate);
+  if (cached) return cached;
+
+  const computed = computeHistoricalForecast(db, localDate, windowDays);
+  db.prepare(
+    `INSERT OR REPLACE INTO forecast_snapshots
+       (local_date, by_hour_json, total_chargeable, computed_ts, window_days)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(
+    localDate,
+    JSON.stringify(computed.byHour),
+    computed.totalForecast,
+    new Date().toISOString(),
+    windowDays,
+  );
+  return computed;
+}
