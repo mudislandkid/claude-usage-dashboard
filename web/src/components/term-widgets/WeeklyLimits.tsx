@@ -24,7 +24,7 @@ export function WeeklyLimitsPanel() {
       sub="// reset sun 02:00 utc"
       action={sourceTag}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
         <WeeklyRow
           label="ALL_MODELS"
           bar={data.allModels}
@@ -34,6 +34,11 @@ export function WeeklyLimitsPanel() {
           label="SONNET_ONLY"
           bar={data.sonnet}
           color={TT.purple}
+        />
+        <WeeklyRow
+          label="CLAUDE_DESIGN"
+          bar={data.claudeDesign}
+          color={TT.blue}
         />
       </div>
       {data.oauth.lastError && data.oauth.enabled && (

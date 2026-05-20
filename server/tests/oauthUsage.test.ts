@@ -68,6 +68,7 @@ describe('OauthUsageFetcher', () => {
       five_hour: { utilization: 30, resets_at: '2026-05-05T03:00:00Z' },
       seven_day: { utilization: 33, resets_at: '2026-05-10T07:00:00Z' },
       seven_day_sonnet: { utilization: 6, resets_at: '2026-05-10T07:00:00Z' },
+      seven_day_omelette: { utilization: 13, resets_at: '2026-05-10T07:00:00Z' },
     };
     let receivedToken: string | null = null;
     const fetchImpl = (async (_url: string, init?: RequestInit) => {
@@ -82,6 +83,7 @@ describe('OauthUsageFetcher', () => {
     expect(r.usage?.fiveHourPercent).toBe(30);
     expect(r.usage?.sevenDayPercent).toBe(33);
     expect(r.usage?.sevenDaySonnetPercent).toBe(6);
+    expect(r.usage?.sevenDayClaudeDesignPercent).toBe(13);
     expect(r.lastError).toBeNull();
     // Cache file written
     const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));

@@ -32,6 +32,7 @@ export interface WeeklyBar {
 export interface WeeklyResponse {
   allModels: WeeklyBar | null;
   sonnet: WeeklyBar | null;
+  claudeDesign: WeeklyBar | null;
   oauth: {
     enabled: boolean;
     credentialsPresent: boolean;

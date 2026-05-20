@@ -22,6 +22,9 @@ interface RawUsage {
   five_hour?: { utilization?: number; resets_at?: string };
   seven_day?: { utilization?: number; resets_at?: string };
   seven_day_sonnet?: { utilization?: number; resets_at?: string };
+  // Internal Anthropic codename for the "Claude Design" tier shown in the
+  // Plan usage limits page.
+  seven_day_omelette?: { utilization?: number; resets_at?: string } | null;
 }
 
 export interface OauthUsage {
@@ -31,6 +34,8 @@ export interface OauthUsage {
   sevenDayResetsAt: string | null;
   sevenDaySonnetPercent: number | null;
   sevenDaySonnetResetsAt: string | null;
+  sevenDayClaudeDesignPercent: number | null;
+  sevenDayClaudeDesignResetsAt: string | null;
   fetchedAt: string;
 }
 
@@ -174,6 +179,9 @@ function pickUsage(raw: RawUsage, now: () => number): OauthUsage {
     sevenDaySonnetPercent:
       typeof raw.seven_day_sonnet?.utilization === 'number' ? raw.seven_day_sonnet.utilization : null,
     sevenDaySonnetResetsAt: raw.seven_day_sonnet?.resets_at ?? null,
+    sevenDayClaudeDesignPercent:
+      typeof raw.seven_day_omelette?.utilization === 'number' ? raw.seven_day_omelette.utilization : null,
+    sevenDayClaudeDesignResetsAt: raw.seven_day_omelette?.resets_at ?? null,
     fetchedAt: new Date(now()).toISOString(),
   };
 }

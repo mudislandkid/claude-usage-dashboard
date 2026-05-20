@@ -74,9 +74,23 @@ export async function weeklyRoute(
       );
     }
 
+    let claudeDesign: WeeklyBar | null = null;
+    if (
+      oauth.usage?.sevenDayClaudeDesignPercent !== null &&
+      oauth.usage?.sevenDayClaudeDesignPercent !== undefined
+    ) {
+      claudeDesign = makeBar(
+        oauth.usage.sevenDayClaudeDesignPercent,
+        oauth.usage.sevenDayClaudeDesignResetsAt,
+        'oauth',
+        profile,
+      );
+    }
+
     return {
       allModels,
       sonnet,
+      claudeDesign,
       oauth: {
         enabled: settings.oauthUsageEnabled,
         credentialsPresent: oauth.credentialsPresent,
