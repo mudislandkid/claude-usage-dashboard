@@ -26,6 +26,11 @@ pub fn run() {
                         let _ = win.eval("window.location.reload()");
                     }
                 }
+                "check_updates" => {
+                    if let Some(win) = app.get_webview_window("main") {
+                        let _ = win.eval("window.cudCheckForUpdates && window.cudCheckForUpdates()");
+                    }
+                }
                 "github" => {
                     use tauri_plugin_opener::OpenerExt;
                     let _ = app

@@ -5,6 +5,7 @@ import { Pulse } from './Pulse';
 import { useWindow } from '@/hooks/useWindow';
 import { useWeekly } from '@/hooks/useWeekly';
 import { useCurrentPlan } from '@/hooks/useCurrentPlan';
+import { APP_VERSION } from '@/lib/version';
 
 interface Props {
   onOpenPalette: () => void;
@@ -63,7 +64,7 @@ export function TCommandBar({ onOpenPalette, range, onRange }: Props) {
           CLAUDE_USAGE
         </span>
         <span style={{ color: TT.textDim, fontSize: 10 }}>
-          v0.2 · single-user{planLabel ? ` · ${planLabel}` : ''}
+          {APP_VERSION} · single-user{planLabel ? ` · ${planLabel}` : ''}
         </span>
       </div>
       <div

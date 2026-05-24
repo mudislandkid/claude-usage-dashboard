@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, FolderKanban, Settings as SettingsIcon, Columns } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { APP_VERSION } from '@/lib/version';
 
 const items = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -14,7 +15,7 @@ export function Sidebar() {
     <aside className="w-56 border-r border-border bg-card/40 flex flex-col">
       <div className="px-4 py-5 border-b border-border">
         <h1 className="font-semibold tracking-tight">Claude Usage</h1>
-        <p className="text-xs text-muted-foreground">v0.1</p>
+        <p className="text-xs text-muted-foreground">{APP_VERSION}</p>
       </div>
       <nav className="flex-1 py-2">
         {items.map((it) => (

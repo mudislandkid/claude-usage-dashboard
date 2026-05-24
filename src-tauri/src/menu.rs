@@ -11,12 +11,16 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<
         .website_label(Some("GitHub"))
         .build();
 
+    let check_updates = MenuItemBuilder::with_id("check_updates", "Check for Updates\u{2026}").build(app)?;
+
     let app_submenu = SubmenuBuilder::new(app, "Claude Usage Dashboard")
         .item(&PredefinedMenuItem::about(
             app,
             Some("About Claude Usage Dashboard"),
             Some(about_metadata),
         )?)
+        .separator()
+        .item(&check_updates)
         .separator()
         .item(&PredefinedMenuItem::services(app, None)?)
         .separator()
