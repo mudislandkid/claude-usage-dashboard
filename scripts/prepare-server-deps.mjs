@@ -63,12 +63,31 @@ run(
   [
     'install',
     '--omit=dev',
+    '--include=optional',
     '--no-package-lock',
     '--workspaces=false',
     '--install-strategy=nested',
   ],
   { cwd: BUNDLE_DIR, env },
 );
+
+// fsevents is chokidar's optional dep (darwin-only). With
+// --install-strategy=nested + --no-package-lock + --workspaces=false, npm
+// reliably drops fsevents on the floor even with --include=optional. Since
+// fsevents 2.x ships a prebuilt N-API .node (ABI-stable across Node 18/20/22+)
+// directly in its tarball, we can safely copy the resolved copy from the
+// hoisted root node_modules into the bundle.
+const rootFsevents = join(REPO, 'node_modules', 'fsevents');
+const targetFsevents = join(BUNDLE_DIR, 'node_modules', 'fsevents');
+if (existsSync(rootFsevents) && !existsSync(targetFsevents)) {
+  cpSync(rootFsevents, targetFsevents, { recursive: true });
+  console.log(`[prepare-server-deps] Copied fsevents from ${rootFsevents}`);
+} else if (!existsSync(rootFsevents)) {
+  console.warn(
+    '[prepare-server-deps] WARNING: root node_modules/fsevents missing — ' +
+      'run `npm install` at repo root first for native macOS file events.',
+  );
+}
 
 // Verify native binaries are arm64 + present.
 const nativeChecks = [
