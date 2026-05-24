@@ -27,7 +27,12 @@ if [[ ! -d "$SEARCH_DIR" ]]; then
 fi
 
 echo "[sign-addons] Searching for .node files under ${SEARCH_DIR}"
-mapfile -t ADDONS < <(find "$SEARCH_DIR" -name "*.node" -type f)
+# mapfile is bash 4+; macOS ships with bash 3.2 (and GitHub macos-14 runners
+# use that by default for /bin/bash). Use a portable read loop instead.
+ADDONS=()
+while IFS= read -r addon; do
+  ADDONS+=("$addon")
+done < <(find "$SEARCH_DIR" -name "*.node" -type f)
 
 if [[ ${#ADDONS[@]} -eq 0 ]]; then
   echo "[sign-addons] No .node files found — nothing to sign."
