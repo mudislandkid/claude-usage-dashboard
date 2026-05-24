@@ -31,7 +31,8 @@
     "resources": [
       "../web/dist/**/*",
       "../server/dist/**/*",
-      "../server/node_modules/**/*"
+      "../server/node_modules/**/*",
+      "../server/package.json"
     ],
     "icon": [
       "icons/32x32.png",
