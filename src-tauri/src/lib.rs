@@ -13,6 +13,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(SidecarState::new())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .menu(|app| menu::build(app))
         .on_menu_event(|app, event| {
@@ -23,10 +24,10 @@ pub fn run() {
                     }
                 }
                 "github" => {
-                    use tauri_plugin_shell::ShellExt;
+                    use tauri_plugin_opener::OpenerExt;
                     let _ = app
-                        .shell()
-                        .open("https://github.com/Mudislandkid/claude-usage-dashboard", None);
+                        .opener()
+                        .open_url("https://github.com/Mudislandkid/claude-usage-dashboard", None::<&str>);
                 }
                 _ => {}
             }
