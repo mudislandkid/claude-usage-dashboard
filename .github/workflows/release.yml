@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    env:
+      APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Import Apple cert into temp keychain
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/cud-build.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Add the new keychain to the search list, preserving existing keychains
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+          security find-identity -v -p codesigning
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build server + web
+        run: npm run build
+
+      - name: Prepare sidecar (download Node 20)
+        run: npm run prepare:sidecar
+
+      - name: Prepare server-bundle (prod deps, Node 20 ABI)
+        run: npm run prepare:server-deps
+
+      - name: Sign native .node addons
+        run: bash scripts/sign-native-addons.sh
+
+      - name: Tauri build (sign + notarize + staple)
+        run: npx tauri build --target aarch64-apple-darwin
+
+      - name: Verify signing and notarization
+        run: |
+          APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Claude Usage Dashboard.app"
+          DMG=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+          echo "=== codesign verify ==="
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          echo "=== spctl assess ==="
+          spctl --assess --verbose --type execute "$APP"
+          echo "=== stapler validate ==="
+          xcrun stapler validate "$DMG"
+
+      - name: Collect release artifacts
+        id: artifacts
+        run: |
+          mkdir -p release-assets
+          # DMG (signed + notarized + stapled)
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg release-assets/
+          # Updater artifacts produced by createUpdaterArtifacts: true
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz release-assets/ 2>/dev/null || true
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig release-assets/ 2>/dev/null || true
+          # latest.json updater manifest (Tauri writes this when createUpdaterArtifacts is true)
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/latest.json release-assets/ 2>/dev/null || true
+          ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+      - name: Clean up temp keychain
+        if: always()
+        run: |
+          if [ -n "${KEYCHAIN_PATH:-}" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
