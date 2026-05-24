@@ -26,6 +26,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["dmg", "app"],
     "externalBin": ["binaries/cud-server"],
     "resources": [
@@ -45,6 +46,15 @@
       "minimumSystemVersion": "12.0",
       "signingIdentity": null,
       "entitlements": "entitlements.plist"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "REPLACE_ME_WITH_REAL_PUBKEY_FROM_TAURI_SIGNER_GENERATE",
+      "endpoints": [
+        "https://github.com/Mudislandkid/claude-usage-dashboard/releases/latest/download/latest.json"
+      ]
     }
   }
 }
