@@ -2,6 +2,7 @@
 
 mod menu;
 mod sidecar;
+mod splash;
 
 use sidecar::{start_sidecar, stop_sidecar, SidecarState};
 use tauri::{Manager, RunEvent, WindowEvent};
@@ -35,6 +36,13 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // Show the splash immediately so the user sees the logo + "Starting…"
+            // label instead of an empty white window while the sidecar boots.
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.navigate(splash::data_url().parse().unwrap());
+                let _ = win.show();
+            }
+
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 match start_sidecar(&handle).await {
@@ -52,7 +60,7 @@ pub fn run() {
                                 "<html><body style='font-family:system-ui;padding:32px;background:#0a0a0a;color:#fff'>\
                                  <h1>Failed to start backend</h1><pre>{e}</pre></body></html>"
                             );
-                            let data_url = format!("data:text/html;base64,{}", base64_encode(&html));
+                            let data_url = format!("data:text/html;base64,{}", base64_encode_bytes(html.as_bytes()));
                             let _ = win.navigate(data_url.parse().unwrap());
                         }
                     }
@@ -77,10 +85,9 @@ pub fn run() {
     });
 }
 
-fn base64_encode(s: &str) -> String {
+pub(crate) fn base64_encode_bytes(bytes: &[u8]) -> String {
     use std::fmt::Write;
     const ALPHA: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let bytes = s.as_bytes();
     let mut out = String::new();
     for chunk in bytes.chunks(3) {
         let b0 = chunk[0];
