@@ -76,13 +76,14 @@ jobs:
       - name: Verify signing and notarization
         run: |
           APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Claude Usage Dashboard.app"
-          DMG=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
           echo "=== codesign verify ==="
           codesign --verify --deep --strict --verbose=2 "$APP"
           echo "=== spctl assess ==="
           spctl --assess --verbose --type execute "$APP"
-          echo "=== stapler validate ==="
-          xcrun stapler validate "$DMG"
+          # Tauri staples the .app (not the DMG wrapper). The .app being
+          # notarized + stapled is what Gatekeeper actually checks.
+          echo "=== stapler validate (.app) ==="
+          xcrun stapler validate "$APP"
 
       - name: Generate latest.json updater manifest
         run: npm run generate:latest-json
