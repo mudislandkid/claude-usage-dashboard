@@ -78,10 +78,21 @@ pub async fn start_sidecar<R: Runtime>(app: &AppHandle<R>) -> Result<u16, String
         }
     });
 
-    let port = timeout(Duration::from_secs(15), port_rx)
-        .await
-        .map_err(|_| "timed out waiting for sidecar READY".to_string())?
-        .map_err(|_| "sidecar exited before READY".to_string())?;
+    let port = match timeout(Duration::from_secs(15), port_rx).await {
+        Ok(Ok(p)) => p,
+        Ok(Err(_)) => {
+            // oneshot sender dropped before sending — sidecar exited.
+            let _ = child.kill();
+            reader_handle.abort();
+            return Err("sidecar exited before READY".to_string());
+        }
+        Err(_) => {
+            // 15s deadline hit.
+            let _ = child.kill();
+            reader_handle.abort();
+            return Err("timed out waiting for sidecar READY".to_string());
+        }
+    };
 
     let state: tauri::State<SidecarState> = app.state();
     *state.child.lock().unwrap() = Some(child);
