@@ -28,13 +28,15 @@ impl SidecarState {
 /// Spawn the Node sidecar and wait until it prints `READY <port>` on stdout.
 /// Returns the port the server is listening on.
 pub async fn start_sidecar<R: Runtime>(app: &AppHandle<R>) -> Result<u16, String> {
-    // The server is declared in tauri.conf.json under `bundle.resources` as
-    // `../server/dist/**/*`. Tauri's bundler stores parent-relative resources under
-    // `Resources/_up_/...`. Use `path().resolve(_, BaseDirectory::Resource)` so the
-    // same logical path resolves correctly in both dev and bundled runs.
+    // The server is shipped as a self-contained tree under
+    // `src-tauri/server-bundle/` (built by scripts/prepare-server-deps.mjs).
+    // Because that path is inside src-tauri/, Tauri bundles it directly into
+    // `Resources/server-bundle/...` (no `_up_/` prefix). Resolving via
+    // BaseDirectory::Resource gives us the right location in both dev and
+    // production builds.
     let server_entry = app
         .path()
-        .resolve("../server/dist/index.js", BaseDirectory::Resource)
+        .resolve("server-bundle/dist/index.js", BaseDirectory::Resource)
         .map_err(|e| format!("resolve server entry failed: {e}"))?;
     if !server_entry.exists() {
         return Err(format!(

@@ -29,10 +29,10 @@
     "targets": ["dmg", "app"],
     "externalBin": ["binaries/cud-server"],
     "resources": [
-      "../web/dist/**/*",
-      "../server/dist/**/*",
-      "../server/node_modules/**/*",
-      "../server/package.json"
+      "server-bundle/dist/**/*",
+      "server-bundle/node_modules/**/*",
+      "server-bundle/web-dist/**/*",
+      "server-bundle/package.json"
     ],
     "icon": [
       "icons/32x32.png",

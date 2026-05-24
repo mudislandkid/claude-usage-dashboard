@@ -30,11 +30,14 @@ async function main() {
   });
 
   if (BUNDLED) {
-    // Resolve the React build relative to this file. Two layouts we handle:
-    //   1. Bundled: Resources/server/index.js -> Resources/dist (sibling)
-    //   2. Local build: server/dist/index.js -> repo-root/web/dist
+    // Resolve the React build relative to this file. Layouts we handle:
+    //   1. Bundled (server-bundle layout): server-bundle/dist/index.js
+    //      -> server-bundle/web-dist
+    //   2. Legacy bundled (Resources/dist sibling layout) — kept for safety
+    //   3. Local build: server/dist/index.js -> repo-root/web/dist
     const here = path.dirname(fileURLToPath(import.meta.url));
     const candidates = [
+      path.resolve(here, '..', 'web-dist'),
       path.resolve(here, '..', 'dist'),
       path.resolve(here, '..', '..', 'web', 'dist'),
     ];
