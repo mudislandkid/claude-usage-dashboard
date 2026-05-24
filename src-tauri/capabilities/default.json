@@ -1,8 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Capability for the main window. The webview navigates to http://127.0.0.1:<random-port>/ after the sidecar binds, so we have to declare 127.0.0.1 / localhost as trusted remote origins for plugin commands to be callable.",
   "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*", "http://localhost:*"]
+  },
   "permissions": [
     "core:default",
     "opener:allow-open-url",
