@@ -2,14 +2,24 @@
   "name": "claude-usage-dashboard",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web"
+  ],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,magenta \"npm:dev -w server\" \"npm:dev -w web\"",
     "build": "npm run build -w server && npm run build -w web",
     "test": "npm run test -w server && npm run test -w web",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "prepare:sidecar": "node scripts/prepare-sidecar.mjs",
+    "prepare:server-deps": "node scripts/prepare-server-deps.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev --target aarch64-apple-darwin",
+    "tauri:build:unsigned": "npm run build && npm run prepare:sidecar && npm run prepare:server-deps && tauri build --target aarch64-apple-darwin",
+    "tauri:build": "npm run build && npm run prepare:sidecar && npm run prepare:server-deps && bash scripts/sign-native-addons.sh && tauri build --target aarch64-apple-darwin"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
     "concurrently": "^9.0.0"
   }
 }

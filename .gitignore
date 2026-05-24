@@ -48,3 +48,11 @@ usage-dashboard.db
 usage-dashboard.db-shm
 usage-dashboard.db-wal
 .credentials.json
+
+# Tauri build artifacts
+src-tauri/target/
+src-tauri/binaries/cud-server-*
+src-tauri/gen/
+src-tauri/server-bundle/
+*.dmg
+*.app
