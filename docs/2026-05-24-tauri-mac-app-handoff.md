@@ -47,7 +47,7 @@ The Team ID is the 10-char code at https://developer.apple.com/account → Membe
 ### 0.4 Quick sanity: M1 unsigned build still works
 
 ```bash
-cd /Volumes/1tbSSD/claude-usage-dashboard/.claude/worktrees/feat+tauri-mac-app
+cd /Volumes/1tbSSD/claude-usage-dashboard
 npm run tauri:build:unsigned
 ```
 
@@ -73,7 +73,7 @@ Replace the placeholders with the real values. These need to be in the SAME shel
 ### 1.2 Run the signed build
 
 ```bash
-cd /Volumes/1tbSSD/claude-usage-dashboard/.claude/worktrees/feat+tauri-mac-app
+cd /Volumes/1tbSSD/claude-usage-dashboard
 npm run tauri:build
 ```
 
@@ -139,7 +139,7 @@ Goal: the Ed25519 keypair Tauri uses to verify update payloads.
 
 ```bash
 mkdir -p ~/.tauri
-npm --prefix /Volumes/1tbSSD/claude-usage-dashboard/.claude/worktrees/feat+tauri-mac-app run tauri signer generate -- -w ~/.tauri/cud-updater.key
+npm --prefix /Volumes/1tbSSD/claude-usage-dashboard run tauri signer generate -- -w ~/.tauri/cud-updater.key
 ```
 
 You'll be prompted for a password — set a strong one and save it to 1Password under **"CUD Updater Signing Key Password"**.
@@ -182,7 +182,7 @@ Replace `REPLACE_ME_WITH_REAL_PUBKEY_FROM_TAURI_SIGNER_GENERATE` with the full p
 
 Verify Tauri still parses the conf:
 ```bash
-cd /Volumes/1tbSSD/claude-usage-dashboard/.claude/worktrees/feat+tauri-mac-app
+cd /Volumes/1tbSSD/claude-usage-dashboard
 npx tauri info 2>&1 | head -20
 ```
 
@@ -249,38 +249,11 @@ shred -u ~/cud-developer-id.p12.b64
 
 ---
 
-## Stage 5 — Merge branch + push, ship v0.1.0 (M3.7)
+## Stage 5 — Ship v0.1.0 (M3.7)
 
-Goal: first release through CI.
+Goal: first release through CI. (The Tauri work is already merged to main and pushed to origin as commit `c8679b1`.)
 
-### 5.1 Merge the Tauri branch into main
-
-If you've been working with the worktree:
-```bash
-cd /Volumes/1tbSSD/claude-usage-dashboard  # back to main checkout
-git merge --no-ff worktree-feat+tauri-mac-app -m "feat: package as Tauri Mac app
-
-Bundles the Node + Fastify backend as a Tauri sidecar; the app
-runs as a signed + notarized standalone .app distributed via the
-auto-updating DMG on GitHub Releases.
-
-Done across milestones:
-- M1: Local unsigned build + lifecycle (sidecar spawn, port discovery, native menu, SIGTERM cleanup)
-- M2: Signing + notarization wiring (hardened runtime, .node addon signing, entitlements)
-- M3: GitHub Actions release pipeline + auto-updater"
-git push origin main
-```
-
-If you want a PR instead, push the branch and open one:
-```bash
-cd /Volumes/1tbSSD/claude-usage-dashboard/.claude/worktrees/feat+tauri-mac-app
-git push origin worktree-feat+tauri-mac-app:feat/tauri-mac-app
-gh pr create --base main --head feat/tauri-mac-app --title "Package as Tauri Mac app" --body-file /dev/stdin <<'EOF'
-[summary as above]
-EOF
-```
-
-### 5.2 (Optional) Replace placeholder icon
+### 5.1 (Optional) Replace placeholder icon
 
 If you have final 1024×1024 artwork:
 ```bash
@@ -293,14 +266,14 @@ git push
 
 Otherwise ship v0.1.0 with the placeholder; you can swap later.
 
-### 5.3 Tag and push
+### 5.2 Tag and push
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-### 5.4 Watch the release workflow
+### 5.3 Watch the release workflow
 
 https://github.com/Mudislandkid/claude-usage-dashboard/actions
 
@@ -311,7 +284,7 @@ If it fails, check the logs. Most common first-run issues:
 - Signing identity mismatch → `APPLE_SIGNING_IDENTITY` must be the EXACT string from `security find-identity` including the team ID in parens
 - Notarization rejected → check the notarytool log link in the workflow output
 
-### 5.5 Verify the release
+### 5.4 Verify the release
 
 Once green, visit https://github.com/Mudislandkid/claude-usage-dashboard/releases/tag/v0.1.0. Confirm assets:
 - `Claude Usage Dashboard_0.1.0_aarch64.dmg`
@@ -360,9 +333,9 @@ git push && git push origin v0.1.1
 
 ### 6.4 Wait for the release to land
 
-Same workflow as Stage 5.4 — ~15–35 minutes.
+Same workflow as Stage 5.3 — ~15–35 minutes.
 
-### 6.5 Open the v0.1.0 install you set up in Stage 5.5
+### 6.5 Open the v0.1.0 install you set up in Stage 5.4
 
 Within ~3 seconds of launching v0.1.0, the updater fires. You should see a system confirm dialog:
 
@@ -403,7 +376,7 @@ That's it. No re-running any of Stages 0–4 unless something changes (cert expi
 | CI release workflow fails at "Import Apple cert into temp keychain" | `APPLE_CERTIFICATE_P12_BASE64` was pasted with line wrapping. Re-encode with `base64 -i cert.p12 -o cert.p12.b64` and confirm it's a single long line. |
 | Updater dialog never appears even though new release exists | Check that the pubkey in `src-tauri/tauri.conf.json` matches the one in `~/.tauri/cud-updater.key.pub`. Also check the app's network — it queries `github.com/.../releases/latest/download/latest.json`. |
 | Installed app crashes on launch after update | `latest.json` may reference the wrong `.app.tar.gz` URL. Inspect the asset and re-publish if needed; existing installs will retry. |
-| Worktree directory is in the way | When done, exit and remove: `git worktree remove .claude/worktrees/feat+tauri-mac-app` (after the branch is merged). |
+| TS build fails with `Cannot find module '@tauri-apps/plugin-updater'` | Stale `tsbuildinfo` cache after branch switch or merge. Run `find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete && npm install` then retry. |
 
 ---
 
