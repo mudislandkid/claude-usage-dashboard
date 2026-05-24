@@ -84,6 +84,9 @@ jobs:
           echo "=== stapler validate ==="
           xcrun stapler validate "$DMG"
 
+      - name: Generate latest.json updater manifest
+        run: npm run generate:latest-json
+
       - name: Collect release artifacts
         id: artifacts
         run: |
@@ -91,10 +94,10 @@ jobs:
           # DMG (signed + notarized + stapled)
           cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg release-assets/
           # Updater artifacts produced by createUpdaterArtifacts: true
-          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz release-assets/ 2>/dev/null || true
-          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig release-assets/ 2>/dev/null || true
-          # latest.json updater manifest (Tauri writes this when createUpdaterArtifacts is true)
-          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/latest.json release-assets/ 2>/dev/null || true
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz release-assets/
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig release-assets/
+          # latest.json updater manifest written by generate-latest-json.mjs
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/latest.json release-assets/
           ls -la release-assets/
 
       - name: Create GitHub Release

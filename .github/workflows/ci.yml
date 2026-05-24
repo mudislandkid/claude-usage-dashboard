@@ -36,5 +36,7 @@ jobs:
       - run: npm run build
       - run: npm run prepare:sidecar
       - run: npm run prepare:server-deps
-      # Unsigned smoke build — validates bundle assembles without burning notarization.
-      - run: npm run tauri:build:unsigned
+      # Smoke build: compile only (--no-bundle). createUpdaterArtifacts requires
+      # TAURI_SIGNING_PRIVATE_KEY which we don't expose on PRs; the release
+      # workflow handles full bundling + signing.
+      - run: npx tauri build --target aarch64-apple-darwin --no-bundle
