@@ -55,3 +55,6 @@ src-tauri/binaries/cud-server-*
 src-tauri/gen/
 *.dmg
 *.app
+
+# Placeholder icons until M1.9 supplies real ones
+src-tauri/icons/
