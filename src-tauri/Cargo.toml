@@ -1,6 +1,6 @@
 [package]
 name = "claude-usage-dashboard"
-version = "0.1.0"
+version = "0.1.1"
 description = "Claude Usage Dashboard"
 authors = ["Greg Herriott"]
 edition = "2021"
