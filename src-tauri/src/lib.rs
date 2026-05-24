@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod menu;
 mod sidecar;
 
 use sidecar::{start_sidecar, stop_sidecar, SidecarState};
@@ -13,6 +14,23 @@ pub fn run() {
         .manage(SidecarState::new())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .menu(|app| menu::build(app))
+        .on_menu_event(|app, event| {
+            match event.id().as_ref() {
+                "reload" => {
+                    if let Some(win) = app.get_webview_window("main") {
+                        let _ = win.eval("window.location.reload()");
+                    }
+                }
+                "github" => {
+                    use tauri_plugin_shell::ShellExt;
+                    let _ = app
+                        .shell()
+                        .open("https://github.com/Mudislandkid/claude-usage-dashboard", None);
+                }
+                _ => {}
+            }
+        })
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
