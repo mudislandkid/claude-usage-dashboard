@@ -42,7 +42,9 @@
     ],
     "category": "DeveloperTool",
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": null,
+      "entitlements": "entitlements.plist"
     }
   }
 }
