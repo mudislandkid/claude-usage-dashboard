@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { useCostBreakdown } from '@/hooks/useCostBreakdown';
+import { FAST_RATES } from '@/lib/pricing';
 
 interface RatesRow {
   family: 'opus' | 'sonnet' | 'haiku';
@@ -8,7 +9,7 @@ interface RatesRow {
 }
 
 const ROWS: RatesRow[] = [
-  { family: 'opus', label: 'Opus 4.5+' },
+  { family: 'opus', label: 'Opus 4.5–4.8' },
   { family: 'sonnet', label: 'Sonnet 4.x' },
   { family: 'haiku', label: 'Haiku 4.5' },
 ];
@@ -129,6 +130,32 @@ export function PricingTooltip() {
                   </tr>
                 );
               })}
+              <tr>
+                <td
+                  colSpan={6}
+                  style={{
+                    padding: '10px 0 2px',
+                    fontSize: 9,
+                    letterSpacing: '0.08em',
+                    color: TT.textDim,
+                  }}
+                >
+                  FAST MODE · premium output, when enabled (not in usage data)
+                </td>
+              </tr>
+              {FAST_RATES.map((p) => (
+                <tr
+                  key={p.label}
+                  style={{ borderTop: `1px dashed ${TT.border}` }}
+                >
+                  <td style={{ ...td, color: TT.textMute }}>{p.label}</td>
+                  <td style={{ ...tdRight, color: TT.textMute }}>{usd(p.input)}</td>
+                  <td style={{ ...tdRight, color: TT.textMute }}>{usd(p.output)}</td>
+                  <td style={{ ...tdRight, color: TT.textMute }}>{usd(p.cacheWrite5m)}</td>
+                  <td style={{ ...tdRight, color: TT.textMute }}>{usd(p.cacheWrite1h)}</td>
+                  <td style={{ ...tdRight, color: TT.textMute }}>{usd(p.cacheRead)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
           <div
@@ -144,9 +171,10 @@ export function PricingTooltip() {
             5m cache write = 1.25× input · 1h cache write = 2.00× input · cache
             read = 0.10× input.
             <br />
-            Opus 4.5/4.6/4.7 dropped from $15/$75 in legacy 4/4.1.
+            Opus 4.5–4.8 cost $5/$25 — down from $15/$75 in legacy 4/4.1, which
+            is costed automatically if those model ids appear.
             <br />
-            Source: docs.anthropic.com/en/docs/about-claude/pricing
+            Source: platform.claude.com/docs/en/about-claude/pricing
           </div>
         </div>
       )}

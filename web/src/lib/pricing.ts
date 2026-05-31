@@ -1,8 +1,9 @@
-// API pricing (USD per million tokens) — Anthropic public rates as of 2026-05.
-// https://docs.anthropic.com/en/docs/about-claude/pricing
+// API pricing (USD per million tokens) — Anthropic public rates as of 2026-05-31.
+// https://platform.claude.com/docs/en/about-claude/pricing
 //
-// NOTE: Opus 4.5+ pricing dropped substantially from legacy Opus 4 / 4.1
-// ($15/$75) to $5/$25. We use current rates since Claude Code is now on 4.5+.
+// Current latest per family: Opus 4.8 · Sonnet 4.6 · Haiku 4.5. Rates are keyed
+// by family since every current member shares them. Opus 4.5+ ($5/$25) dropped
+// substantially from legacy Opus 4 / 4.1 ($15/$75); Claude Code is now on 4.5+.
 // Authoritative cost math now happens server-side in /api/cost-breakdown;
 // these constants are only used for legacy/display purposes and as a fallback.
 export interface ModelRates {
@@ -40,6 +41,39 @@ export const PRICING: Record<'opus' | 'sonnet' | 'haiku', ModelRates> = {
     cacheRead: 0.1,
   },
 };
+
+// Legacy Opus (Claude 3 Opus, Opus 4, Opus 4.1) — 3× current Opus rates.
+// Costed automatically server-side when such a model id appears in the data.
+export const LEGACY_OPUS_RATES: ModelRates = {
+  label: 'Opus 4/4.1 (legacy)',
+  input: 15.0,
+  output: 75.0,
+  cacheWrite5m: 18.75,
+  cacheWrite1h: 30.0,
+  cacheRead: 1.5,
+};
+
+// Fast mode (Claude Code premium output, Opus 4.6+). Shown for reference only —
+// Claude Code does not currently log a fast-mode flag, so it isn't applied to
+// cost math. Cache multipliers (1.25×/2×/0.10×) apply on top of the fast input.
+export const FAST_RATES: ModelRates[] = [
+  {
+    label: 'Opus 4.8 · fast',
+    input: 10.0,
+    output: 50.0,
+    cacheWrite5m: 12.5,
+    cacheWrite1h: 20.0,
+    cacheRead: 1.0,
+  },
+  {
+    label: 'Opus 4.6/4.7 · fast',
+    input: 30.0,
+    output: 150.0,
+    cacheWrite5m: 37.5,
+    cacheWrite1h: 60.0,
+    cacheRead: 3.0,
+  },
+];
 
 export interface Plan {
   id: 'pro' | 'max5' | 'max20' | 'team' | 'enterprise' | 'custom' | 'api';

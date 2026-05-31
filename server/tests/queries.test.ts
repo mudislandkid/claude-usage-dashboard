@@ -105,7 +105,9 @@ describe('sessions + turns queries', () => {
 
 describe('aggregate queries', () => {
   it('classifyModel handles known + unknown', () => {
+    expect(classifyModel('claude-opus-4-8')).toBe('opus');
     expect(classifyModel('claude-opus-4-7')).toBe('opus');
+    expect(classifyModel('claude-sonnet-4-6')).toBe('sonnet');
     expect(classifyModel('claude-haiku-4-5-20251001')).toBe('haiku');
     expect(classifyModel('something-else')).toBe('other');
     expect(classifyModel(null)).toBe('other');

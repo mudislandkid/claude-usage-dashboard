@@ -7,6 +7,7 @@ import {
   dollarize,
   emptyBuckets,
   PRICING,
+  resolveRates,
   type DollarBuckets,
   type ModelRates,
   type TokenBuckets,
@@ -103,7 +104,9 @@ export function costBreakdown(db: DB, days: number): CostBreakdown {
       cacheCreation5mTokens: r.cache_creation_5m,
       cacheCreation1hTokens: r.cache_creation_1h,
     };
-    const dollars = dollarize(family, buckets);
+    // Version-aware: legacy Opus 4/4.1 cost 3× current Opus 4.5+. Fast mode is
+    // not detectable from current JSONL (see detectFastMode), so standard rates.
+    const dollars = dollarize(resolveRates(r.model), buckets);
 
     // per-project
     let project = projectMap.get(r.project_path);
