@@ -163,6 +163,75 @@ describe('OauthUsageFetcher', () => {
     expect(calls).toBe(3);
   });
 
+  it('stamps the cache with the active account uuid', async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({ seven_day: { utilization: 40, resets_at: '2026-05-10T00:00:00Z' } }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    const fetcher = makeFetcher({ fetchImpl });
+    const r = await fetcher.getUsage({ enabled: true, activeAccountUuid: 'acct-A' });
+    expect(r.usage?.accountUuid).toBe('acct-A');
+    const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    expect(cached.accountUuid).toBe('acct-A');
+  });
+
+  it('refetches immediately on account change, bypassing the refresh throttle', async () => {
+    let calls = 0;
+    let body = { seven_day: { utilization: 40, resets_at: '2026-05-10T00:00:00Z' } };
+    const baseTime = 1_000_000;
+    let nowMs = baseTime;
+    const fetchImpl = (async () => {
+      calls += 1;
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as unknown as typeof fetch;
+    const fetcher = makeFetcher({ fetchImpl, nowMs: () => nowMs, refreshMs: 60_000 });
+
+    await fetcher.getUsage({ enabled: true, activeAccountUuid: 'acct-A' });
+    expect(calls).toBe(1);
+
+    // Same account, well within the refresh window -> served from cache.
+    nowMs = baseTime + 1_000;
+    await fetcher.getUsage({ enabled: true, activeAccountUuid: 'acct-A' });
+    expect(calls).toBe(1);
+
+    // Switched account, still within the refresh window -> immediate refetch.
+    body = { seven_day: { utilization: 7, resets_at: '2026-05-12T00:00:00Z' } };
+    nowMs = baseTime + 2_000;
+    const r = await fetcher.getUsage({ enabled: true, activeAccountUuid: 'acct-B' });
+    expect(calls).toBe(2);
+    expect(r.usage?.sevenDayPercent).toBe(7);
+    expect(r.usage?.accountUuid).toBe('acct-B');
+  });
+
+  it('never surfaces the other account on a post-switch fetch error', async () => {
+    let shouldFail = false;
+    const baseTime = 1_000_000;
+    let nowMs = baseTime;
+    const fetchImpl = (async () => {
+      if (shouldFail) return new Response('nope', { status: 401 });
+      return new Response(
+        JSON.stringify({ seven_day: { utilization: 55, resets_at: '2026-05-10T00:00:00Z' } }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    const fetcher = makeFetcher({
+      fetchImpl,
+      nowMs: () => nowMs,
+      refreshMs: 60_000,
+      backoffMs: 60_000,
+    });
+
+    await fetcher.getUsage({ enabled: true, activeAccountUuid: 'acct-A' });
+
+    // Switch to B; B's fetch fails -> must NOT fall back to A's numbers.
+    shouldFail = true;
+    nowMs = baseTime + 1_000;
+    const r = await fetcher.getUsage({ enabled: true, activeAccountUuid: 'acct-B' });
+    expect(r.lastError).toMatch(/HTTP 401/);
+    expect(r.usage).toBeNull();
+  });
+
   it('handles partial responses (missing seven_day_sonnet)', async () => {
     const fetchImpl = (async () =>
       new Response(
