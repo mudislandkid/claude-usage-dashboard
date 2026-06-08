@@ -1,6 +1,7 @@
 import { TT, TT_MONO } from '@/components/terminal/tokens';
 import { TPanel } from '@/components/terminal/Panel';
 import { useWeekly, type WeeklyBar } from '@/hooks/useWeekly';
+import { formatResetHeader } from '@/lib/format';
 
 export function WeeklyLimitsPanel() {
   const { data } = useWeekly();
@@ -18,12 +19,32 @@ export function WeeklyLimitsPanel() {
       : 'OAUTH'
     : 'STATUSLINE';
 
+  const email = data.account?.email ?? null;
+  const action = email ? `${email} · ${sourceTag}` : sourceTag;
+
+  const resetIso = data.allModels?.resetsAt ?? null;
+  const sub = resetIso ? `// reset ${formatResetHeader(resetIso)}` : '// weekly limits';
+
+  if (data.switching) {
+    return (
+      <TPanel title="WEEKLY_LIMITS" sub={sub} action={action}>
+        <div
+          style={{
+            fontFamily: TT_MONO,
+            fontSize: 12,
+            color: TT.textMute,
+            padding: '18px 0',
+          }}
+        >
+          ▸ refreshing for{' '}
+          <span style={{ color: TT.green }}>{email ?? 'account'}</span>…
+        </div>
+      </TPanel>
+    );
+  }
+
   return (
-    <TPanel
-      title="WEEKLY_LIMITS"
-      sub="// reset sun 02:00 utc"
-      action={sourceTag}
-    >
+    <TPanel title="WEEKLY_LIMITS" sub={sub} action={action}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
         <WeeklyRow
           label="ALL_MODELS"

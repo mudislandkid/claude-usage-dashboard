@@ -33,6 +33,8 @@ export interface WeeklyResponse {
   allModels: WeeklyBar | null;
   sonnet: WeeklyBar | null;
   claudeDesign: WeeklyBar | null;
+  account: { email: string; organizationName: string | null } | null;
+  switching: boolean;
   oauth: {
     enabled: boolean;
     credentialsPresent: boolean;
