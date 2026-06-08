@@ -37,6 +37,7 @@ export interface OauthUsage {
   sevenDayClaudeDesignPercent: number | null;
   sevenDayClaudeDesignResetsAt: string | null;
   fetchedAt: string;
+  accountUuid: string | null;
 }
 
 export interface OauthFetchResult {
@@ -78,14 +79,25 @@ export function createOauthUsageFetcher(deps: FetcherDeps = {}) {
     lastAttemptAt: 0,
   };
 
-  async function getUsage(opts: { enabled: boolean }): Promise<OauthFetchResult> {
+  async function getUsage(opts: {
+    enabled: boolean;
+    activeAccountUuid?: string | null;
+  }): Promise<OauthFetchResult> {
+    const activeUuid = opts.activeAccountUuid ?? null;
+    // Usage only "belongs" to the caller if its stamped account matches the
+    // active one. When we can't determine the active account (null), fall back
+    // to best-effort (treat as a match) so behaviour is no worse than before.
+    const matches = (u: OauthUsage | null): boolean =>
+      u !== null && (activeUuid === null || u.accountUuid === activeUuid);
+    const safeUsage = matches(cache.usage) ? cache.usage : null;
+
     const creds = loadCreds();
     const credsSource = creds?.source ?? null;
 
     if (!creds) {
       return {
-        usage: cache.usage,
-        ageSeconds: ageSec(cache.usage, now),
+        usage: safeUsage,
+        ageSeconds: ageSec(safeUsage, now),
         lastError: 'No Claude Code credentials found',
         credentialsPresent: false,
         credentialsSource: null,
@@ -101,24 +113,30 @@ export function createOauthUsageFetcher(deps: FetcherDeps = {}) {
       };
     }
 
+    const accountMatches = matches(cache.usage);
     const cacheAge = cache.usage
       ? now() - new Date(cache.usage.fetchedAt).getTime()
       : Infinity;
     const sinceLastAttempt = now() - cache.lastAttemptAt;
 
-    if (cacheAge < refreshMs) {
+    // Fresh AND same account -> serve cache. An account switch fails this test
+    // and falls through to an immediate refetch (throttle bypassed).
+    if (accountMatches && cacheAge < refreshMs) {
       return {
-        usage: cache.usage,
-        ageSeconds: ageSec(cache.usage, now),
+        usage: safeUsage,
+        ageSeconds: ageSec(safeUsage, now),
         lastError: cache.lastError,
         credentialsPresent: true,
         credentialsSource: credsSource,
       };
     }
+    // Error backoff still applies (even across a switch) so a failing endpoint
+    // can't be hammered. safeUsage is null on mismatch, so we never leak the
+    // other account here either.
     if (cache.lastError && sinceLastAttempt < backoffMs) {
       return {
-        usage: cache.usage,
-        ageSeconds: ageSec(cache.usage, now),
+        usage: safeUsage,
+        ageSeconds: ageSec(safeUsage, now),
         lastError: cache.lastError,
         credentialsPresent: true,
         credentialsSource: credsSource,
@@ -137,7 +155,7 @@ export function createOauthUsageFetcher(deps: FetcherDeps = {}) {
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const raw = (await r.json()) as RawUsage;
-      const usage = pickUsage(raw, now);
+      const usage = pickUsage(raw, now, activeUuid);
       cache.usage = usage;
       cache.lastError = null;
       writeCacheFile(cachePath, usage);
@@ -151,9 +169,10 @@ export function createOauthUsageFetcher(deps: FetcherDeps = {}) {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
       cache.lastError = message;
+      const fallback = matches(cache.usage) ? cache.usage : null;
       return {
-        usage: cache.usage,
-        ageSeconds: ageSec(cache.usage, now),
+        usage: fallback,
+        ageSeconds: ageSec(fallback, now),
         lastError: message,
         credentialsPresent: true,
         credentialsSource: credsSource,
@@ -170,7 +189,11 @@ export function createOauthUsageFetcher(deps: FetcherDeps = {}) {
   return { getUsage, reset };
 }
 
-function pickUsage(raw: RawUsage, now: () => number): OauthUsage {
+function pickUsage(
+  raw: RawUsage,
+  now: () => number,
+  activeAccountUuid: string | null,
+): OauthUsage {
   return {
     fiveHourPercent: typeof raw.five_hour?.utilization === 'number' ? raw.five_hour.utilization : null,
     fiveHourResetsAt: raw.five_hour?.resets_at ?? null,
@@ -183,6 +206,7 @@ function pickUsage(raw: RawUsage, now: () => number): OauthUsage {
       typeof raw.seven_day_omelette?.utilization === 'number' ? raw.seven_day_omelette.utilization : null,
     sevenDayClaudeDesignResetsAt: raw.seven_day_omelette?.resets_at ?? null,
     fetchedAt: new Date(now()).toISOString(),
+    accountUuid: activeAccountUuid,
   };
 }
 
