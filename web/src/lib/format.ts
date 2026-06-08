@@ -31,3 +31,20 @@ export function formatDuration(mins: number | null): string {
   const m = Math.round(mins % 60);
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
+
+/**
+ * Short weekday + 24h local time for the weekly-limits header, e.g. "sun 16:00".
+ * Local time matches the per-bar ETA line so the two never contradict.
+ */
+export function formatResetHeader(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const day = d.toLocaleDateString([], { weekday: 'short' }).toLowerCase();
+  const time = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return `${day} ${time}`;
+}
