@@ -5,6 +5,7 @@ import { readStatuslineSidecar } from '../../lib/statusline.js';
 import { getOauthUsageFetcher } from '../../lib/oauthUsage.js';
 import { computeWeeklyProjection, type WeeklyProjection } from '../../lib/weeklyProjection.js';
 import { buildHourOfWeekProfile } from '../../lib/hourOfWeekProfile.js';
+import { readActiveAccount } from '../../lib/activeAccount.js';
 
 interface WeeklyBar {
   percent: number;
@@ -34,8 +35,12 @@ export async function weeklyRoute(
   app.get('/weekly', async () => {
     const settings = getSettings(opts.ctx.db);
     const statusline = readStatuslineSidecar();
+    const account = readActiveAccount();
     const fetcher = getOauthUsageFetcher();
-    const oauth = await fetcher.getUsage({ enabled: settings.oauthUsageEnabled });
+    const oauth = await fetcher.getUsage({
+      enabled: settings.oauthUsageEnabled,
+      activeAccountUuid: account?.accountUuid ?? null,
+    });
     const profile = buildHourOfWeekProfile(opts.ctx.db);
 
     // Prefer OAuth values when available — they include the Sonnet split and
@@ -87,10 +92,24 @@ export async function weeklyRoute(
       );
     }
 
+    // "switching": OAuth is the intended source and we know who's logged in,
+    // but no account-matching usage is available yet (just switched, or the
+    // refetch errored). The UI shows a refreshing placeholder instead of the
+    // other account's stale numbers.
+    const switching =
+      settings.oauthUsageEnabled &&
+      oauth.credentialsPresent &&
+      account !== null &&
+      oauth.usage === null;
+
     return {
       allModels,
       sonnet,
       claudeDesign,
+      account: account
+        ? { email: account.email, organizationName: account.organizationName }
+        : null,
+      switching,
       oauth: {
         enabled: settings.oauthUsageEnabled,
         credentialsPresent: oauth.credentialsPresent,
