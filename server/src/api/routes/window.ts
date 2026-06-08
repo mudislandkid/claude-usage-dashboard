@@ -28,20 +28,24 @@ export async function windowRoute(
       new Date(sidecar.fiveHourResetsAt).getTime() > nowMs;
     const bridgeActive = sidecarFresh;
 
-    // Effective limit: when the bridge is on we infer it from Anthropic's %
-    // ÷ our locally-counted tokens. This keeps projection math in a single
-    // unit (our chargeable tokens) and self-corrects to whatever ratio
-    // Anthropic uses internally. Claude Code re-pipes its statusline JSON
-    // continuously while a session is running, so anthropicPctFraction is
-    // effectively live (not just on prompt submission).
+    // When the bridge is on, Anthropic's reported 5h percent is authoritative
+    // for the gauge *percentage* and reset time (used below). Claude Code
+    // re-pipes its statusline JSON continuously while a session is running, so
+    // this fraction is effectively live (not just on prompt submission).
     const anthropicPctFraction =
       sidecar?.fiveHourPercent !== null && sidecar?.fiveHourPercent !== undefined
         ? sidecar.fiveHourPercent / 100
         : null;
-    const effectiveLimit =
-      bridgeActive && anthropicPctFraction !== null && anthropicPctFraction > 0 && used > 0
-        ? used / anthropicPctFraction
-        : limit;
+
+    // Effective limit is ALWAYS the configured / plan window limit. We used to
+    // reverse-engineer an implied cap from Anthropic's percent (used / pct)
+    // while the bridge was live, but that denominator sawtoothed on every poll:
+    // Anthropic reports the percent in coarse integer steps while our local
+    // token count moves continuously, so used/pct swung wildly between frames
+    // (e.g. 21.5M → 35.3M). Pinning to the configured limit keeps the
+    // denominator — and everything derived from it (headroom, projection) —
+    // stable. The bridge still drives the authoritative percentUsed below.
+    const effectiveLimit = limit;
 
     const percentUsed = bridgeActive
       ? Math.min(1, anthropicPctFraction ?? 0)
