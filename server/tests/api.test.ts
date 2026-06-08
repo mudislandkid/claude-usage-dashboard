@@ -45,6 +45,15 @@ describe('GET /api/weekly', () => {
     }
     await app.close();
   });
+
+  it('includes account + switching fields', async () => {
+    const db = openDb(':memory:');
+    const app = await buildApi({ db, triggerScan: async () => {} });
+    const body = (await app.inject({ method: 'GET', url: '/api/weekly' })).json();
+    expect('account' in body).toBe(true); // null on CI, object on a logged-in machine
+    expect(typeof body.switching).toBe('boolean');
+    await app.close();
+  });
 });
 
 describe('settings round-trip', () => {
