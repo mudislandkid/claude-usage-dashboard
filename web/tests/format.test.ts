@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatTokens, formatPercent, formatRelative, formatDuration } from '../src/lib/format';
+import { formatTokens, formatPercent, formatRelative, formatDuration, formatResetHeader } from '../src/lib/format';
 
 describe('format', () => {
   it('tokens', () => {
@@ -22,5 +22,12 @@ describe('format', () => {
   it('relative', () => {
     expect(formatRelative(null)).toBe('—');
     expect(formatRelative(new Date().toISOString())).toBe('just now');
+  });
+
+  it('reset header', () => {
+    expect(formatResetHeader(null)).toBe('—');
+    expect(formatResetHeader('not-a-date')).toBe('—');
+    // local-timezone-independent shape check: "sun 16:00"
+    expect(formatResetHeader('2026-06-14T12:00:00Z')).toMatch(/^[a-z]{3} \d{2}:\d{2}$/);
   });
 });
