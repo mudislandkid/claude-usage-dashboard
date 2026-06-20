@@ -3,6 +3,7 @@ import { TPanel } from '@/components/terminal/Panel';
 import { useRange } from '@/components/terminal/RangeContext';
 import { useProjects } from '@/hooks/useProjects';
 import { useWindow } from '@/hooks/useWindow';
+import { AccountHeader } from '@/components/term-widgets/AccountHeader';
 import { DashboardTicker } from '@/components/term-widgets/Ticker';
 import { FiveHourGaugePanel } from '@/components/term-widgets/FiveHourGauge';
 import { ForecastPanel } from '@/components/term-widgets/ForecastPanel';
@@ -30,6 +31,8 @@ export function Dashboard() {
       style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}
       className="tt-fade"
     >
+      <AccountHeader />
+
       <TPanel padded={false}>
         <DashboardTicker />
       </TPanel>
